@@ -1,0 +1,2139 @@
+load model-checker.maude
+load BPMNOS_RULES_AS_EQUATIONS_COLLABORATION_LEVEL
+---load BPMNOS_RULES_AS_EQUATIONS_COLLABORATION_LEVEL_2
+---load BPMNOS_RULES_3
+
+mod CHECK-M-PREDS-BPMNOS is
+
+  protecting BPMNOS-SYNTAX .
+  protecting BPMNOS-SEMANTICS . ---the most recent version
+  ---protecting BPMNOS-SEMANTICS2 .
+  ---protecting BPMNOS-SEMANTICS3 .
+
+  ---Module with predefined Collaboration examples (for testing)
+  ---including CHECK-M-INITIALS-BPMNOS .
+  ---Modules necessary for using the Model-Checker
+  including MODEL-CHECKER .
+  including SATISFACTION .
+
+  including LTL-SIMPLIFIER .
+
+	protecting FLOAT .
+
+  ---Subsort relation required for using the Model-Checker
+  subsort Model <  State .
+
+***Declaration of Operators corresponding to Properties
+  ***1 aBPendsParameterized, to test End State reachability of a specific process associated to a Pool (identified by its Organization Name).
+  op aBPoolendsParameterized(_) : OrgName -> Prop .
+
+  ***2 aBPoolends to test if at least one process of a pool in the collaboration reaches an end state.
+  op aBPoolends : -> Prop .
+
+  ***3 aBPoolstarts to test if at least one process of a pool in the collaboration can always start.
+  op aBPoolstarts : -> Prop .
+
+  ***4  BPstartsParameterized, to test if the process of a specific Pool (identified by its Organization Name) starts.
+  op aBPoolstartsParameterized(_) : OrgName -> Prop .
+
+  ***5 aTaskComplete, to test if there is at least one Task that completes in the Collaboration
+  op aTaskComplete : -> Prop .
+
+  ***5.1 aTaskCompleteParameterized, to test if a specific Task completes in the Collaboration.
+  op aTaskCompleteParameterized(_) : TaskName -> Prop .
+
+  ***5.2 aTaskCompleteOrgParameterized, to test if a specific Task completes in a specific Pool.
+  op aTaskCompleteOrgParameterized(_,_) : OrgName TaskName -> Prop .
+
+  ***6 aTaskRunning, to test if there is at leat one task that reaches the Running state in a Collaboration.
+  op aTaskRunning : -> Prop .
+
+  ***6.1 aTaskRunningParameterized, to test if in the process associated to a Pool there is a task in the Running state.
+  op aTaskRunningParameterizedInPool(_) : OrgName -> Prop .
+
+  ***6.2 aTaskRunningParameterized, to test if in the process associated to a Pool there is a task in the Running state.
+  op aTaskRunningParameterized(_) : TaskName -> Prop .
+
+  ***6.3 aTaskEnabledParameterized, to test if in the process associated to a Pool there is a task in the Running state.
+  op aTaskEnabledParameterized(_) : TaskName -> Prop .
+
+  ***7 aBPoolRcvMsg, to test if a message is received by a specific Pool.
+  op aBPoolRcvMsg(_,_) : OrgName MsgName -> Prop .
+
+  ***8 aBPoolSndMsg, to test if a message is sent by a specific Pool.
+  op aBPoolSndMsg(_,_) : OrgName MsgName -> Prop .
+
+  ***9 noTokenAround, to test if there are no token on BPMN Elements
+  op noTokenAround(_) : OrgName -> Prop .
+
+  ***10 safeness, to test if there may be more than one token on BPMN Elements Edges
+  op safeness(_) : OrgName -> Prop .
+
+  ***11 properCompletion, not used, construted by composition of other properties
+  op properCompletion(_) : OrgName -> Prop .
+
+  ***String command ="red modelCheck("+parsedModel+", [] ";
+  ***command += " (aBPoolendsParameterized("+'"'+poolName+'"'+")";
+  ***command +=  "=> ( noMultipleTokenAround("+'"'+poolName+'"'+")))";
+  ***command += " ) . \n";
+
+
+  ***9 noTokenAround, to test if there are no token on BPMN Elements
+  op noMultipleTokenAround(_) : OrgName -> Prop .
+
+  ***9 noTokenAround, to test if there are no token on BPMN Elements
+  op noMultipleTokenAroundMsgsAreNOk(_) : OrgName -> Prop .
+
+  ***9 noTokenAround, to test if there are no token on BPMN Elements
+  op noMultipleTokenAroundOnlyMsgsAreNOk(_) : OrgName -> Prop .
+
+  ***10 safeness not if messages are accumulated, to test if there may be more than one token on BPMN Elements Edges
+  op safenessNoMSG(_) : OrgName -> Prop .
+
+  ***11 completionBPMN revised version of otpion to complete for bpmn Modules
+  op completionBPMN(_) : OrgName -> Prop .
+
+***12 properCompletionBPMN revised version of otpion to complete for bpmn Modules
+  op properCompletionBPMN(_) : OrgName -> Prop .
+
+***13 MultipleTokenEndProc revised version of otpion to complete for bpmn Modules
+  op MultipleTokenEndProc(_) : OrgName -> Prop .
+
+***14 to check if a SQF will be traversed
+  op traversedSQF(_) : EdgeName -> Prop .
+
+***OptionToComplete
+***String command ="red modelCheck("+parsedModel+", []";
+***			command += "(aBPoolstartsParameterized("+'"'+poolName+'"'+")";
+***			command +=  "=> <> aBPoolendsParameterized("+'"'+poolName+'"'+"))";
+
+
+
+  *** Variables definition
+  ---OrgName
+  vars Org1Name Org2Name : OrgName .
+  ---Edges
+  vars Edges0 Edges1 Edges2 : Edges .
+  ---TaskName
+  var TName : TaskName .
+  ---EdgeName, InputEdgeName and OutputEdgeName
+  var EName IEName OEName BNIEName : EdgeName .
+  ---EdgeToken,  InputEdgeToken and OutputEdgeToken
+  var EToken IEToken OEToken BNIEToken : EdgeToken .
+  ---Var for Messages
+  vars Msgs1 inputMsgSet outputMsgSet inputMsgSet1 outputMsgSet1 inputMsgSet2 outputMsgSet2 : Msgs .
+  vars MsgName1 MsgName2 : MsgName .
+  vars MsgToken1 MsgToken1' MsgToken2 : MsgToken .
+  ---interRcv
+  var interRcv : InterRcv .
+  ---Var for Collaboration
+  vars Coll1 Coll2 Coll1' : Collaboration .
+  vars ProcElem1 ProcElem2 ProcElem1' : ProcElement .
+
+  var ProcElements1 : ProcElements .
+  ---var for Action
+  var Action1 Action2 Action1' : Action .
+  var ActProcElement1 : ActProcElement .
+  var CollAction1 : CollaborationAction .
+  var Pool1 : Pool .
+
+
+  var T1Name : TaskName .
+
+	vars Status1 : Status .
+
+
+---PROPRIETA' SULLE LABEL
+***1.1 aBPendsParameterized, to test End State reachability of a specific process associated to a Pool (identified by its Organization Name).
+---  eq collaboration(
+---        {collab(Org1Name,tUpd("P1o1" . 1,emptyEdgeSet))}
+---        Coll1
+---      ) |= aBPoolendsParameterized(Org1Name) = true
+---    .
+  eq collaboration(
+    {CollAction1}
+    pool( Org1Name ,
+      proc(
+          {Action1}ProcElements1
+          | end( enabled , IEName . IEToken )
+          ),in: inputMsgSet ,out: outputMsgSet
+          ) | Coll1
+      ) |= aBPoolendsParameterized(Org1Name)
+      = true  .
+
+  ***1.2 aBPendsParameterized, to test End State reachability of a specific process associated to a Pool (identified by its Organization Name).
+    ceq collaboration(
+        {CollAction1}
+        pool( Org1Name ,
+          proc(
+              {Action1}ProcElements1
+              | endSnd( msgSent , IEName . IEToken , MsgName1 .msg MsgToken1)
+              ),in: inputMsgSet ,out: outputMsgSet
+          ) | Coll1
+      ) |= aBPoolendsParameterized(Org1Name)
+      = true if MsgToken1 > 0 .
+
+      ***1.3 aBPendsParameterized, to test End State reachability of a specific process associated to a Pool (identified by its Organization Name).
+      ---terminate
+      eq collaboration(
+        {CollAction1}
+        pool( Org1Name ,
+          proc(
+              {kill}ProcElements1
+              | terminate( disabled , IEName . IEToken )
+              ),in: inputMsgSet ,out: outputMsgSet
+              ) | Coll1
+          ) |= aBPoolendsParameterized(Org1Name)
+          = true  .
+
+***2.1 aBPoolends to test if at least one process of a pool in the collaboration reaches an end state.
+---simple end event
+  eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1
+            | end( enabled , IEName . IEToken )
+            ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= aBPoolends
+      = true .
+
+
+    ***2.2 aBPoolends to test if at least one process of a pool in the collaboration reaches an end state.
+    ---endSnd
+    ceq collaboration(
+        {CollAction1}
+        pool( Org1Name ,
+          proc(
+              {Action1}ProcElements1
+              | endSnd( msgSent , IEName . IEToken , MsgName1 .msg MsgToken1)
+              ),in: inputMsgSet ,out: outputMsgSet
+          ) | Coll1
+      ) |= aBPoolends
+      = true if MsgToken1 > 0 .
+
+      ***2.3 aBPoolends to test if at least one process of a pool in the collaboration reaches an end state.
+      ---terminate
+      eq collaboration(
+          {CollAction1}
+          pool( Org1Name ,
+            proc(
+                {kill}ProcElements1
+                | terminate( disabled , IEName . IEToken )
+                ),in: inputMsgSet ,out: outputMsgSet
+            ) | Coll1
+          ) |= aBPoolends
+          = true .
+
+***3.1 aBPoolstarts to test if at least one process of a pool in the collaboration can always start.
+---simple start event
+   eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+             {Action1}ProcElements1
+             | start( enabled , EName . EToken )
+             ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= aBPoolstarts
+      = true .
+
+  ***3.2 aBPoolstarts to test if at least one process of a pool in the collaboration can always start.
+  ---startRcv
+   ceq collaboration(
+       {CollAction1}
+       pool( Org1Name ,
+         proc(
+             {Action1}ProcElements1
+             | startRcv( msgReceived , EName . EToken , MsgName1 .msg MsgToken1 )
+             ),in: inputMsgSet ,out: outputMsgSet
+         ) | Coll1
+       ) |= aBPoolstarts
+       = true if MsgToken1 > 0 .
+
+
+***4.1  BPstartsParameterized, to test if the process of a specific Pool (identified by its Organization Name) starts.
+  ---simple start
+   eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+         proc(
+              {Action1}ProcElements1
+              | start( enabled , EName . EToken )
+              ),in: inputMsgSet ,out: outputMsgSet
+         ) | Coll1
+      ) |= aBPoolstartsParameterized(Org1Name) = true
+      .
+
+***4.2  BPstartsParameterized, to test if the process of a specific Pool (identified by its Organization Name) starts.
+  ---startRcv
+   ceq collaboration(
+       {CollAction1}
+       pool( Org1Name ,
+            proc(
+                {Action1}ProcElements1
+                | startRcv( msgReceived , EName . EToken , MsgName1 .msg MsgToken1 )
+                ),in: inputMsgSet ,out: outputMsgSet
+            ) | Coll1
+       ) |= aBPoolstartsParameterized(Org1Name) = true
+       if MsgToken1 > 0
+      .
+
+***5 aTaskComplete, to test if there is at least one Task that completes in the Collaboration
+  eq collaboration(
+     {collab(Org1Name,completed(T1Name))}
+     Coll1
+     ) |= aTaskComplete = true
+  .
+
+***5.1 aTaskCompleteParameterized, to test if a specific Task completes in the Collaboration.
+  eq collaboration(
+      {collab(Org1Name,completed(T1Name))}
+      Coll1
+      ) |= aTaskCompleteParameterized(T1Name ) = true
+  .
+
+***5.2 aTaskCompleteOrgParameterized, to test if a specific Task completes in a specific Pool.
+  eq collaboration(
+      {collab(Org1Name,completed(T1Name))}
+      Coll1
+      ) |= aTaskCompleteOrgParameterized(Org1Name,T1Name ) = true
+  .
+
+***6 aTaskRunning, to test if there is at leat one task that reaches the Running state in a Collaboration.
+  eq collaboration(
+     {collab(Org1Name,running(T1Name))}
+     Coll1
+     ) |= aTaskRunning = true
+  .
+
+***6.1 aTaskRunningParameterized, to test if in the process associated to a Pool there is a task in the Running state.
+  eq collaboration(
+      {collab(Org1Name,running(T1Name))}
+      Coll1
+      ) |= aTaskRunningParameterizedInPool(Org1Name) = true
+  .
+
+***6.2 aTaskRunningParameterized, to test if in the process associated to a Pool there is a task in the Running state.
+  eq collaboration(
+      {collab(Org1Name,running(T1Name))}
+      Coll1
+      ) |= aTaskRunningParameterized(T1Name ) = true
+  .
+
+  ***6.2 aTaskEnabledParameterized, to test if in the process associated to a Pool there is a task in the Enabled state.
+    eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}task( enabled,  IEName . IEToken , OEName . OEToken , T1Name ) | ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= aTaskEnabledParameterized(T1Name ) = true
+    .
+
+      ***6.2 aTaskEnabledParameterized, to test if in the process associated to a Pool there is a task in the Enabled state.
+    eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}taskSnd( enabled,  IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1, T1Name ) | ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= aTaskEnabledParameterized(T1Name ) = true
+    .
+
+
+***7 aBPoolRcvMsg, to test if a message is received by a specific Pool.
+  eq collaboration(
+      {collab(Org1Name,rcv(MsgName1))}
+      Coll1
+      ) |= aBPoolRcvMsg(Org1Name , MsgName1 ) = true
+  .
+
+***8 aBPoolSndMsg, to test if a message is sent by a specific Pool.
+  eq collaboration(
+      {collab(Org1Name,snd(MsgName1))}
+      Coll1
+      ) |= aBPoolSndMsg(Org1Name , MsgName1 ) = true
+  .
+
+***9 noTokenAround, to test if there are no token on the BPMN elemets
+***For all the elements in a Pool
+ceq collaboration(
+  {CollAction1}
+  pool( Org1Name ,
+    proc(
+        {Action1}ProcElements1
+    ),in: inputMsgSet ,out: outputMsgSet
+    ) | Coll1
+  ) |= noTokenAround(Org1Name) = true
+  ---if noTokenPresent(ProcElements1) = true
+  if noTokenPresent(ProcElements1) = true
+  .
+
+  eq collaboration(
+    {CollAction1}
+    pool( Org1Name ,
+      proc(
+          {Action1}ProcElements1
+      ),in: inputMsgSet ,out: outputMsgSet
+      ) | Coll1
+    ) |= noTokenAround(Org1Name) = false [otherwise]
+  .
+
+  ***10 safeness, to test if there may be more than one token on BPMN Elements Edges
+
+      ***For EmptyPool it is true
+      --- eq collaboration(
+      ---   {CollAction1}
+      ---   pool( Org1Name ,
+      ---     proc(
+      ---         {emptyAction} emptyProcElements
+      ---     ),in: inputMsgSet ,out: outputMsgSet
+      ---     )
+      ---   ) |= safeness(Org1Name) = true
+      --- .
+
+***PROBABILMENTE E' ERRATO...
+      --- eq collaboration(
+      ---   {CollAction1}
+      ---   pool( Org1Name ,
+      ---     proc(
+      ---         {emptyAction} emptyProcElements
+      ---     ),in: inputMsgSet ,out: outputMsgSet
+      ---     ) | Coll1
+      ---   ) |= safeness(Org1Name) = true
+      --- .
+
+
+***LA EMPTY POOL DEVE ESSERE GIà GESTITA DA NOMULTIPLETOKENPRESENT PERCHè E' TRUE SE ProcElements1 è emptyProcElements
+***UNA SOLA POOL NON C'E' MAI PERCHE' VIENE SEMPRE AGGIUNTA QUELLA VUOTA QUINDI SOTTO DOVREBBE ANDARE BNIEName
+***PER OGNI CASO
+---SAFENESS DISREGARDING Messages
+  ***For all the elements
+  ceq collaboration(
+    {CollAction1}
+    pool( Org1Name ,
+      proc(
+          {Action1}ProcElements1
+      ),in: inputMsgSet ,out: outputMsgSet
+      ) | Coll1
+      ) |= safeness(Org1Name) = true
+    if noMultipleTokenPresent(ProcElements1) = true
+    .
+
+    eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+          {Action1}ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= safeness(Org1Name) = false [otherwise]
+    .
+
+---SAFENESS NOT DISREGARDING Messages
+***For all the elements
+  ceq collaboration(
+    {CollAction1}
+    pool( Org1Name ,
+      proc(
+          {Action1}ProcElements1
+      ),in: inputMsgSet ,out: outputMsgSet
+      ) | Coll1
+    ) |= safenessNoMSG(Org1Name) = true
+    if noMultipleTokenPresent(ProcElements1) = true
+    /\ noMultipleMessagePending(inputMsgSet) = true
+    /\ noMultipleMessagePending(outputMsgSet) = true
+    .
+
+    eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+          {Action1}ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= safenessNoMSG(Org1Name) = false [otherwise]
+    .
+
+
+
+    ***eq collaboration(
+    ***  {CollAction1}
+      ***pool( Org1Name ,
+        ***proc(
+        ***    {emptyAction}emptyProcess | emptyProcElements
+        ***),in: inputMsgSet ,out: outputMsgSet
+        ***) | pool( Org2Name ,
+          ***proc(
+          ***    {emptyAction}emptyProcess | emptyProcElements
+          ***),in: inputMsgSet2 ,out: outputMsgSet2
+          ***)
+      ***) |= safeness(Org1Name) = true
+    ***.
+
+    ***10 properCompletion, to test if there may be more than one token on BPMN Elements Edges
+    ***For all the elements
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | end( enabled , IEName . IEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= properCompletion(Org1Name) = true
+      ---if noTokenPresent(ProcElements1) = true
+      if noTokenPresent(ProcElements1) = true
+      .
+
+      eq collaboration(
+        {CollAction1}
+        pool( Org1Name ,
+          proc(
+              {Action1}ProcElements1
+          ),in: inputMsgSet ,out: outputMsgSet
+          ) | Coll1
+        ) |= properCompletion(Org1Name) = false [otherwise]
+      .
+
+
+***IT IS NEEDED TO CHECK PROPER COMPLETION TENENDO CONTO DEI MESSAGGI
+      ***11 noMultipleTokenAround, to test if there are no token on the BPMN elemets
+      ***For all the elements in a Pool
+      ceq collaboration(
+        {CollAction1}
+        pool( Org1Name ,
+          proc(
+              {Action1}ProcElements1
+          ),in: inputMsgSet ,out: outputMsgSet
+          ) | Coll1
+        ) |= noMultipleTokenAround(Org1Name) = true
+        ---if noTokenPresent(ProcElements1) = true
+        if noMultipleTokenPresentAround(ProcElements1) < 2
+        .
+
+        eq collaboration(
+          {CollAction1}
+          pool( Org1Name ,
+            proc(
+                {Action1}ProcElements1
+            ),in: inputMsgSet ,out: outputMsgSet
+            ) | Coll1
+          ) |= noMultipleTokenAround(Org1Name) = false [otherwise]
+        .
+
+        ***11 noMultipleTokenAround, to test if there are no token on the BPMN elemets
+        ***For all the elements in a Pool
+        ceq collaboration(
+          {CollAction1}
+          pool( Org1Name ,
+            proc(
+                {Action1}ProcElements1
+            ),in: inputMsgSet ,out: outputMsgSet
+            ) | Coll1
+          ) |= noMultipleTokenAroundMsgsAreNOk(Org1Name) = true
+          ---if noTokenPresent(ProcElements1) = true
+          if noMultipleTokenPresentAround(ProcElements1) < 2
+          /\ noMessagePending(inputMsgSet) = 0
+          /\ noMessagePending(outputMsgSet) = 0
+          .
+
+          eq collaboration(
+            {CollAction1}
+            pool( Org1Name ,
+              proc(
+                  {Action1}ProcElements1
+              ),in: inputMsgSet ,out: outputMsgSet
+              ) | Coll1
+            ) |= noMultipleTokenAroundMsgsAreNOk(Org1Name) = false [otherwise]
+          .
+
+          ceq collaboration(
+            {CollAction1}
+            pool( Org1Name ,
+              proc(
+                  {Action1}ProcElements1
+              ),in: inputMsgSet ,out: outputMsgSet
+              ) | Coll1
+            ) |= noMultipleTokenAroundOnlyMsgsAreNOk(Org1Name) = true
+            ---if noTokenPresent(ProcElements1) = true
+            if noMessagePending(inputMsgSet) = 0
+            /\ noMessagePending(outputMsgSet) = 0
+            .
+
+            eq collaboration(
+              {CollAction1}
+              pool( Org1Name ,
+                proc(
+                    {Action1}ProcElements1
+                ),in: inputMsgSet ,out: outputMsgSet
+                ) | Coll1
+              ) |= noMultipleTokenAroundOnlyMsgsAreNOk(Org1Name) = false [otherwise]
+            .
+
+
+
+
+
+---CORRECT FOR BPMN NOT STRUCTURALLY SOUND
+---ALMENO UN END ABLITATO E NO TOKEN IN GIRO MA NON SE VEDE BENE DA LTL PERO' DOVREBBE FUNZIONARE
+    ***10 completionBPMN, to test if there may be more than one token on BPMN Elements Edges
+    ***For all the elements
+    ---end event enabled
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | end( enabled , IEName . IEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= completionBPMN(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true
+      .
+
+    ---endsnd event enabled
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | endSnd( msgSent , IEName . IEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= completionBPMN(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true
+      .
+
+    ---terminate event enabled
+    ---ceq collaboration(
+    ---  {CollAction1}
+    ---  pool( Org1Name ,
+    ---    proc(
+    ---        {Action1}ProcElements1 | terminate( enabled , IEName . IEToken )
+    ---    ),in: inputMsgSet ,out: outputMsgSet
+    ---    ) | Coll1
+    ---  ) |= completionBPMN(Org1Name) = true
+    ---  if rlyNoTokenPresent(ProcElements1) = true
+    ---  .
+
+      eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill} ProcElements1 | terminate( disabled , IEName . IEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= completionBPMN(Org1Name) = true
+      ---if rlyNoTokenPresent(ProcElements1) = true
+      .
+
+      eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= completionBPMN(Org1Name) = false [otherwise]
+      .
+
+
+
+***13 noProperCompletionBPMNCF revised version of otpion to complete for bpmn Modules
+  op noProperCompletionBPMNCF(_) : OrgName -> Prop .
+
+
+ ---    ceq collaboration(
+ ---     {CollAction1}
+ ---     pool( Org1Name ,
+ ---       proc(
+ ---           {Action1}ProcElements1 | end( enabled , IEName . IEToken )
+ ---       ),in: inputMsgSet ,out: outputMsgSet
+ ---       ) | Coll1
+ ---     ) |= noProperCompletionBPMNCF(Org1Name) = true
+ ---     if noTokenPresentExceptEndSF(ProcElements1, IEName . IEToken) = true /\ IEToken > 0
+ ---     .
+
+---FUNZIONA MA SU TUTTI GLI STATI 
+ ---start
+ ---   ceq collaboration(
+ ---     {CollAction1}
+ ---     pool( Org1Name ,
+ ---       proc(
+ ---           {Action1}ProcElements1 | end( enabled , OEName . OEToken )
+ ---       ),in: inputMsgSet ,out: outputMsgSet
+ ---       ) | Coll1
+ ---     ) |= noProperCompletionBPMNCF(Org1Name) = true
+ ---     if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+ ---     .
+
+---PER OGNI ELEMENTO BPMN E DOVREBBE FUNZIONARE, CON IL CONTROLLO SULL'ELEMENTO NN SO PERCHè NON VA
+---start
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---task
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- andSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+
+			---orSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- eventSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  MsgToken1  ) ))  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---startRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg MsgToken1 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskSnd
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskRcv
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 --- interSnd
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---interRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 *** Exception taskBNI
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			---taskBI
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+---endSnd
+---start
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---task
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- andSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+
+			---orSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- eventSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  MsgToken1  ) ))  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---startRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg MsgToken1 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskSnd
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskRcv
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 --- interSnd
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---interRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 *** Exception taskBNI
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			---taskBI
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+
+---terminate
+---start
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | start( disabled , OEName . OEToken ) | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---task
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- andSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+
+			---orSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 ---xorJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 --- eventSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  MsgToken1  ) ))  | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---startRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg MsgToken1 )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskSnd
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---taskRcv
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 --- interSnd
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			 ---interRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1  )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+			 *** Exception taskBNI
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+			---taskBI
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 )   | terminate( disabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = true
+      if OEToken > 0 /\ rlyNoTokenPresent(ProcElements1) = true
+      .
+
+
+
+
+    ---endsnd event enabled
+---    ceq collaboration(
+---      {CollAction1}
+---      pool( Org1Name ,
+---        proc(
+---            {Action1}ProcElements1 | endSnd( msgSent , IEName . IEToken , MsgName1 .msg MsgToken1)
+---        ),in: inputMsgSet ,out: outputMsgSet
+---        ) | Coll1
+---      ) |= noProperCompletionBPMNCF(Org1Name) = true
+---      if noTokenPresentExceptEndSF(ProcElements1, IEName . IEToken) = true  /\ IEToken > 0
+---      .
+
+    ---terminate event enabled
+---    ceq collaboration(
+---      {CollAction1}
+---      pool( Org1Name ,
+ ---       proc(
+ ---           {Action1}ProcElements1 | terminate( enabled , IEName . IEToken )
+ ---       ),in: inputMsgSet ,out: outputMsgSet
+ ---       ) | Coll1
+ ---     ) |= noProperCompletionBPMNCF(Org1Name) = true
+ ---     if noTokenPresentExceptEndSF(ProcElements1, IEName . IEToken) = true  /\ IEToken > 0
+ ---     .
+
+   eq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCF(Org1Name) = false [otherwise]
+      .
+
+
+
+
+
+
+
+
+***13 MultipleTokenOnEnd revised version of otpion to complete for bpmn Modules
+  op MultipleTokenOnEnd(_) : OrgName -> Prop .
+
+
+        ***11 noMultipleTokenAround, to test if there are no token on the BPMN elemets
+        ***For all the elements in a Pool
+        ceq collaboration(
+           {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | endSnd( Status1 , IEName . IEToken , MsgName1 .msg MsgToken1)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+          ) |= MultipleTokenOnEnd(Org1Name) = true
+          if MultipleTokenEnd(endSnd( Status1 , IEName . IEToken , MsgName1 .msg MsgToken1)) = true
+          .
+
+
+        ceq collaboration(
+           {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 |  end( Status1 , IEName . IEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+          ) |= MultipleTokenOnEnd(Org1Name) = true
+          if MultipleTokenEnd( end( Status1 , IEName . IEToken )) = true
+          .
+
+
+      ceq collaboration(
+           {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | terminate( Status1 , IEName . IEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+          ) |= MultipleTokenOnEnd(Org1Name) = true
+          if MultipleTokenEnd(terminate( Status1 , IEName . IEToken )) = true
+          .
+
+
+
+          eq collaboration(
+            {CollAction1}
+            pool( Org1Name ,
+              proc(
+                  {Action1}ProcElements1
+              ),in: inputMsgSet ,out: outputMsgSet
+              ) | Coll1
+            ) |= MultipleTokenOnEnd(Org1Name) = false [otherwise]
+          .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+***14 noProperCompletionBPMNCFMF revised version of otpion to complete for bpmn Modules
+  op noProperCompletionBPMNCFMF(_) : OrgName -> Prop .
+
+---PER OGNI ELEMENTO BPMN E DOVREBBE FUNZIONARE, CON IL CONTROLLO SULL'ELEMENTO NN SO PERCHè NON VA
+---start
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---task
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+            ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 --- andSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---orSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---xorJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+            ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- eventSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---startRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---taskSnd
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---taskRcv
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 --- interSnd
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---interRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 *** Exception taskBNI
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---taskBI
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+---endSnd
+---start
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+    ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---task
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+     ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- andSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			---orSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- eventSplit
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 ---startRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+
+			 ---taskSnd
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---taskRcv
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+			ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- interSnd
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---interRcv
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 *** Exception taskBNI
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+      ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---taskBI
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNCFMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+***15 SE COMPLETO NON HO TOKEN IN GIRO NE PENDING MESSAGES MA POTREI AVERE TOKEN MULTIPLI SULLO STESSO END (QUESTA NON LO CONTROLLA)
+***15 noProperCompletionBPMNMF revised version of otpion to complete for bpmn Modules
+  op noProperCompletionBPMNMF(_) : OrgName -> Prop .
+
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | end( enabled , OEName . 0 )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+---endSnd
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | endSnd( msgSent , OEName . 0 , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNMF(Org1Name) = true
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+
+
+---terminate
+ 		ceq collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | terminate( disabled , OEName . 0 )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) |= noProperCompletionBPMNMF(Org1Name) = true
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+
+***traversedSQF
+ceq collaboration(
+   {CollAction1}
+   pool( Org1Name ,
+     proc(
+         {Action1}ProcElements1
+     ),in: inputMsgSet ,out: outputMsgSet
+     ) | Coll1
+   ) |= traversedSQF(EName) = true
+   if checkTraversedSQF(ProcElements1 , EName) = true
+  .
+
+  eq collaboration(
+     {CollAction1}
+     pool( Org1Name ,
+       proc(
+           {Action1}ProcElements1
+       ),in: inputMsgSet ,out: outputMsgSet
+       ) | Coll1
+     ) |= traversedSQF(EName) = false [otherwise]
+    .
+
+
+
+
+endm

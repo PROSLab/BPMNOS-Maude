@@ -1,0 +1,94 @@
+*** SEMANTICS MODULE RESERVED TO RULES DEFINITION
+load BPMNOS_RULES_AS_EQUATIONS_PROCESS_LEVEL_2
+
+mod BPMNOS-SEMANTICS-POOL2 is
+	including BPMNOS-SEMANTICS-PROCESS2 .
+
+*** Variables definition
+	---OrgName
+	vars Org1Name Org2Name : OrgName .
+	---Edges
+	vars Edges0 Edges1 Edges2 : Edges .
+  ---
+	vars Status1 : Status .
+	---TaskName
+	var TName : TaskName .
+  ---EdgeName, InputEdgeName and OutputEdgeName
+	var EName IEName OEName BNIEName : EdgeName .
+	---EdgeToken,  InputEdgeToken and OutputEdgeToken
+	var EToken IEToken OEToken BNIEToken : EdgeToken .
+	---Var for Messages
+	vars Msgs1 inputMsgSet outputMsgSet inputMsgSet1 outputMsgSet1 inputMsgSet2 outputMsgSet2 : Msgs .
+	vars MsgName1 MsgName2 : MsgName .
+	vars MsgToken1 MsgToken1' MsgToken2 : MsgToken .
+	---interRcv
+	var interRcv : InterRcv .
+	---Var for Collaboration
+	vars Coll1 Coll2 Coll1' Coll3 : Collaboration .
+	vars ProcElem1 ProcElem2 ProcElem1' : ProcElement .
+	---var for Action
+	var Action1 Action2 Action1' : Action .
+	var ActProcElement1 : ActProcElement .
+	var CollAction1 CollAction2 CollAction3 : CollaborationAction .
+
+  var Pool1 Pool1' : Pool .
+
+	var ProcElements1 ProcElements2 ProcElements1' : ProcElements .
+
+	var SetCommitment1 : SetCommitment .
+
+	---C-Internal
+	crl [C-Internal] :
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet ,out: outputMsgSet)
+	=>
+	{collab(Org1Name , Action1')} pool(Org1Name,proc({Action1'}ProcElements1' ),in: inputMsgSet ,out: outputMsgSet)
+	--- if ProcElements1 => {Action1'}ProcElements1' /\ isInternal(Action1') .
+	if (commitment({Action1'}ProcElements1'), SetCommitment1) := allCommitments(ProcElements1)
+	/\ isInternal(Action1') .
+
+	---G-ReceiveEvent acts on a eventSplit with one InterRcv with MsgToken > 0, and it changes the Status to msgReceived and disables all the other InterRcv .
+	crl [G-ReceiveEvent] :
+	 pool(Org1Name,
+	 	proc(
+	 		{Action1} ProcElements1
+	 		| eventSplit( IEName .  IEToken , eventRcvSplit( eventInterRcv( enabled , EName . EToken , MsgName1 .msg MsgToken1 )
+			^ interRcv ))
+		),in: inputMsgSet1 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet1
+	)
+	=>
+	{collab(Org1Name , rcv(MsgName1))}pool(Org1Name,
+		proc(
+			{rcv(MsgName1)}ProcElements1
+			| eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( msgReceived , EName . EToken , MsgName1 .msg increaseMsgToken( MsgToken1 ))
+			^ setStatusDisabled( interRcv ) ))
+	 		),in: inputMsgSet1 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet1
+	)
+	if MsgToken2 > 0 .
+
+	---C-Receive
+	crl [C-Receive] :
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet andmsg MsgName1 .msg MsgToken1 , out: outputMsgSet)
+	=>
+	{collab(Org1Name , rcv(MsgName1))} pool(Org1Name,proc({rcv(MsgName1)}ProcElements1' ),in: inputMsgSet andmsg MsgName1 .msg decreaseMsgToken(MsgToken1),out: outputMsgSet)
+	if MsgToken1 > 0
+	/\
+	---ProcElements1 => {rcv(MsgName1)}ProcElements1'  .
+  (commitment({rcv(MsgName1)}ProcElements1'), SetCommitment1) := allCommitments(ProcElements1)
+  .
+
+	***improved Deliver
+	crl [C-Deliver] :
+  collaboration(
+	{CollAction1}
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet2)
+	| Coll2 )
+	=>
+	collaboration(
+	{collab(Org1Name , snd(MsgName1))} pool(Org1Name,proc({snd(MsgName1)}ProcElements1' ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg increaseMsgToken( MsgToken2 ),out: outputMsgSet2)
+	| Coll2 )
+---	if ProcElements1 => {snd(MsgName1)}ProcElements1' .
+	if (commitment({snd(MsgName1)}ProcElements1'), SetCommitment1) := allCommitments(ProcElements1) .
+
+endm

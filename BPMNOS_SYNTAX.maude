@@ -1,0 +1,1979 @@
+fmod BPMNOS-SYNTAX is
+
+	protecting QID .
+	protecting BOOL .
+	protecting INT .
+	protecting NAT .
+	protecting STRING .
+	protecting FLOAT .
+	protecting CONVERSION .
+
+	sorts Model Collaboration Pool OrgName Process ActProcElement ProcElement ProcElements .
+	sorts InternalAction SndAction RcvAction Action .
+	sorts SndCollab RcvCollab ActCollaboration CollaborationAction .
+	sorts EdgeSet Edges Edge EdgeName EdgeToken .
+	sorts Task TaskName .
+	sorts MsgSet Msgs Msg MsgName MsgToken .
+	sorts Status .
+	sorts InterRcv InterRcvSet .
+	sorts TokenUpdate Kill .
+
+	subsorts String < OrgName EdgeName TaskName MsgName .
+	subsorts Nat < EdgeToken MsgToken .
+	subsorts Edge < Edges < EdgeSet .
+	subsorts Msg < Msgs < MsgSet .
+	subsorts ProcElement < ProcElements < ActProcElement < Process .
+	subsorts Pool < Collaboration < ActCollaboration < Model .
+	subsorts InterRcv < InterRcvSet .
+	subsorts TokenUpdate Kill < InternalAction < Action .
+	subsorts SndAction RcvAction < Action .
+	subsorts SndCollab RcvCollab < CollaborationAction .
+
+***Constants
+	ops disabled enabled running msgSent msgReceived completed : -> Status .
+	op emptyPool : -> Collaboration [ctor] .
+	op emptyProcess : -> Process [ctor] .
+	op emptyMsgSet : -> Msgs [ctor] .
+	op emptyEdgeSet : -> Edges [ctor] .
+	op emptyAction : -> Action [ctor] .
+	op emptyProcElements : -> ProcElements [ctor] .
+	op noAction : -> CollaborationAction [ctor] .
+
+***Linking symbols
+	op {_}_ : CollaborationAction Collaboration -> ActCollaboration [prec 43].
+	op {_}_ : Action ProcElements -> ActProcElement [frozen prec 41 ] .
+	op _|_ : Collaboration Collaboration -> Collaboration [ assoc comm frozen prec 42 id: emptyPool ] .
+	op _|_ : ActProcElement ProcElements -> ActProcElement [ assoc comm frozen prec 40 ] .
+	op _|_ : ProcElements ProcElements -> ProcElements [ assoc comm frozen prec 40 ] .
+	op _._ : EdgeName EdgeToken -> Edge [ prec 35 frozen ] .
+	op _._ : TaskName Status -> Task [ prec 35 frozen ] .
+  op _.msg_ : MsgName MsgToken -> Msg [ prec 35 frozen ] .
+	op _and_ : Edges Edges -> Edges [ assoc comm  prec 38 frozen id: emptyEdgeSet ] .
+  op _andmsg_ : Msgs Msgs -> Msgs [ assoc comm prec 38 frozen ] .
+	op _^_ : InterRcv InterRcv -> InterRcv [ assoc comm prec 33 frozen ] .
+
+***Aggregation Elements
+	op collaboration(_) : ActCollaboration -> Model [format ( nir! d ntm rn d )] .
+  op pool(_,_,in:_,out:_) : OrgName Process Msgs Msgs -> Pool [ frozen format ( ntg! d d d nt gnt d d d d d d d ) ] .
+	op proc(_) : ActProcElement -> Process [ frozen format ( ttb! d nttty bnttt d )] .
+  op edges(_) : Edges -> EdgeSet [ frozen ] .
+	op eventRcvSplit(_) : InterRcv -> InterRcvSet [ frozen ] .
+	op eventInterRcv(_,_,_) : Status Edge Msg -> InterRcv [ frozen format( d d d d d d d d d ) ] .
+
+***Tasks
+  op task(_,_,_,_) : Status Edge Edge TaskName -> ProcElement [ frozen format( cntttt d d d d d d d d d d ) ] .
+	op taskSnd(_,_,_,_,_) : Status Edge Edge Msg TaskName -> ProcElement [ frozen format( cntttt d d d d d d d d d d d d )] .
+	op taskRcv(_,_,_,_,_) : Status Edge Edge Msg TaskName -> ProcElement [ frozen format( cntttt d d d d d d d d d d d d )] .
+
+***Interrupt
+	op taskBNI(_,_,_,_,_,_) : Status Edge Edge Msg TaskName Edge -> ProcElement [ frozen format( cntttt d d d d d d d d d d d d d d ) ] .
+	op taskBI(_,_,_,_,_,_) : Status Edge Edge Msg TaskName Edge -> ProcElement [ frozen format( cntttt d d d d d d d d d d d d d d ) ] .
+
+
+***Events
+  op start(_,_) : Status Edge -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+	op interSnd(_,_,_,_) : Status Edge Edge Msg -> ProcElement [ frozen format( cntttt d d d d d d d d d d ) ] .
+	op interRcv(_,_,_,_) : Status Edge Edge Msg -> ProcElement [ frozen format( cntttt d d d d d d d d d d ) ] .
+	op startRcv(_,_,_) : Status Edge Msg -> ProcElement [ frozen format( cntttt d d d d d d d d ) ] .
+	op endSnd(_,_,_) : Status Edge Msg  -> ProcElement [ frozen format( cntttt d d d d d d d d ) ] .
+	op terminate(_,_) : Status Edge -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+  op end (_,_) : Status Edge -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+
+***Gateways
+  op andJoin (_,_) : EdgeSet  Edge -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+	op andSplit(_,_) : Edge  EdgeSet -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+  op xorJoin(_,_) : EdgeSet  Edge -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+  op xorSplit(_,_) : Edge  EdgeSet -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+	op orSplit (_,_) : Edge  EdgeSet -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+	op eventSplit(_,_) : Edge  InterRcvSet -> ProcElement [ frozen format( cntttt d d d d d d ) ] .
+
+
+***ProcElement interleavingAction
+	---markingUpdate to propagate the tokens along a prcess
+	op markingUpdate(_,_) : ProcElements InternalAction -> ProcElement .
+	---tokenUpd to increase or decrease the value of an EdgeToken based on an InternalAction
+	op tokenUpd(_,_) : Edge InternalAction -> Edge .
+
+	op tokenUpd(_,_) : InterRcv InternalAction -> InterRcv .
+	---tokenUpd to increase or decrease the value of EdgeTokens present in a Edges based on an InternalAction
+	op tokenUpdEdges(_,_) : Edges InternalAction -> Edges .
+
+***Action definition
+  ---CollaborationAction
+	op collab(_,_) : OrgName Action -> CollaborationAction .
+	op exchange(_,_,_) : OrgName OrgName MsgName -> CollaborationAction .
+	---Actions
+	op snd(_) : MsgName -> SndAction .
+	op rcv(_) : MsgName -> RcvAction .
+	---InternalAction
+	op running(_) : TaskName -> InternalAction .
+	op completed(_) : TaskName -> InternalAction .
+	op tUpd(_,_) : Edges Edges -> TokenUpdate .
+	op kill : -> Kill .
+	op endReached : -> InternalAction .
+
+
+***Additional Functions
+  ---determine the nature of an Action (if it is interleaving, internal or a sndAction)
+	op isInterleaving(_) : Action -> Bool .
+	op isInternal(_) : Action -> Bool .
+	op isSndAction(_) : Action -> Bool .
+	---determine the nature of a CollaborationAction (if it is interleaving, internal or a sndAction)
+	op isSndCollab(_) : CollaborationAction -> Bool .
+	---set InterRcvSet status
+  op setStatusEnabled(_) : InterRcv -> InterRcv .
+  op setStatusDisabled(_) : InterRcv -> InterRcv .
+  ---Decrease a token (EdgeToken and MsgToken)
+  op decreaseToken(_) : EdgeToken -> EdgeToken .
+  op decreaseMsgToken(_) : MsgToken -> MsgToken .
+  ---Increase a token (EdgeToken and MsgToken)
+	op increaseToken(_) : EdgeToken -> EdgeToken  .
+  op increaseMsgToken(_) : MsgToken -> MsgToken  .
+	---Increase EdgeTokens of the first Edges if its Edges are also in the second Edges
+	op increaseTokenEdgeSet(_,_) : Edges Edges -> Edges .
+	---Decrease EdgeTokens of the first Edges if its Edges are also in the second Edges and if the EdgeTokens are > 0
+	op decreaseTokenEdgeSet(_,_) : Edges Edges -> Edges .
+  ---incAllEdges increases all the edge tokens values of an Edges
+  op incAllEdges(_) : Edges -> Edges .
+	---decAllEdges decreases all the edge tokens values of an Edges
+	op decAllEdges(_) : Edges -> Edges .
+	---incMsgs increases the MsgToken value of one single Msg, if this Msg is present in an Msgs (by cheching MsgName)
+ 	op incMsgs(_,_) : Msgs MsgName -> Msgs .
+	---decMsgs decreases the MsgToken value of one single Msg, if this Msg is present in an Msgs (by cheching MsgName)
+	op decMsgs(_,_) : Msgs MsgName -> Msgs .
+  ---resetAllProcTokens, resets all the EdgeToken and TaskToken in the process; the int becomes 0 while the Status becomes disabled
+	op resetAllProcTokens(_) : ProcElement -> ProcElement .
+  ---resetEdges, resets all the Edge Tokens of an Edges
+	op resetEdges(_) : Edges -> Edges .
+	---resetInterRcv, resets all the interRcvevent in an eventSplit
+	op resetInterRcv(_) : InterRcv -> InterRcv .
+ ------checkAllEdges increases all the edge tokens values of an Edges
+ --- op checkAllEdges(_) : Edges -> Bool .
+------fixAllEdges to set to 1 edges with token = 10 and set to zero the resetAllProcTokens
+ --- op fixAllEdges(_) : Edges -> Edges .
+
+---Verification functions
+  ---inEdges to check if an Edge is inside and Edges (searching only for the EdgeName)
+  op _inEdges_ : EdgeName Edges -> Bool [prec 39] .
+  ---inMsgs to check if an Edge is inside and Edges (searching only for the EdgeName)
+	op _inMsgs_ : MsgName Msgs -> Bool [prec 39] .
+  ---intersect to extract the intersection between two edges (resulting in the edges present in both the set of edges)
+	op _intersect_ : Edges Edges -> Edges .
+  ---inSet to check if an Edge that is in an Edges is also cntained in another Edges
+	op _inSet_ : Edges Edges -> Bool [prec 40]  .
+  ---allTokenSet? check if all the tokens of edges inside an Edges are set (>0)
+  op allTokenSet?(_) : Edges -> Bool .
+	---noTokenSet? check if no tokens of edges inside an Edges are set (>0)
+	op noTokenSet?(_) : Edges -> Bool .
+	---noInterRcvSet check if no InterRcv has a token (set to >0)
+	op noInterRcvSet(_) : InterRcv -> Bool .
+	---noTokenPresent check if no tokens is in a composition of BPMN elements which is a ProcElements here
+	op noTokenPresent(_) : ProcElements -> Bool .
+	---howManyTokenPresent check if there is only one token in a composition of BPMN elements which is a ProcElements here
+	op noMultipleTokenPresent(_) : ProcElements -> Bool .
+
+	---noTokenPresent check if no tokens is in a composition of BPMN elements which is a ProcElements here
+	op rlyNoTokenPresent(_) : ProcElements -> Bool .
+
+
+	---noTokenPresentExceptEndAndEndEdge check if no tokens is in a composition of BPMN elements which is a ProcElements here
+	op noTokenPresentExceptEndAndEndEdge(_) : ProcElements -> Bool .
+
+	---noTokenPresent check if no tokens and no message is in a composition of BPMN elements which is a ProcElements here
+	op noMessagePending(_) : Msgs -> Int .
+	op noMultipleMessagePending(_) : Msgs -> Bool .
+	op noMultipleTokenPresentAround(_) : ProcElements -> Int .
+
+		---howManyTokenPresent check if there is only one token in a composition of BPMN elements which is a ProcElements here
+	op noMultipleTokenEnd(_) : ProcElements -> Bool .
+
+
+---To count numer of tokens present in the Model
+	op countTokens(_) : ProcElements -> Float .
+	op countTokens(_) : Edges -> Float .
+	op countTokens(_) : InterRcv -> Float .
+
+---Check if in Edges one Sequence Flow has token >1
+	op multipleTokenPresentEdges(_) : Edges -> Bool .
+
+--- Check if a SQF has a token traversedSQF(ProcElements1,EdgeName)
+	op checkTraversedSQF(_,_) : ProcElements EdgeName -> Bool .
+
+
+---op intToFloat(_) : Int -> Float .
+---var int1 : Int .
+---var float1 : Float .
+
+---eq intToFloat( int1 ) = float( int1 ) .
+
+
+
+
+
+
+*** Variables definition
+	---OrgName
+	vars OrgName1 OrgName2 : OrgName .
+	---ProcElement
+  vars ProcElem1 ProcElem2 : ProcElement .
+	---Edges
+	vars Edges0 Edges1 Edges2 : Edges .
+	---Status
+	vars Status1 : Status .
+	---TaskName
+	var TName : TaskName .
+  ---InputEdgeName and OutputEdgeName
+	var EName IEName OEName BNIEName IENameA : EdgeName .
+	---InputEdgeToken and OutputEdgeToken
+	var EToken IEToken OEToken BNIEToken IETokenA : EdgeToken .
+	---InterRcv
+	var interRcv : InterRcv .
+	---Var for Messages
+	vars Msgs1 : Msgs .
+	vars MsgName1 MsgName2 : MsgName .
+	vars MsgToken1 MsgToken2 : MsgToken .
+	vars inputMsgSet outputMsgSet : Msgs .
+	---Action
+	var Action1 : Action .
+	---CollaborationAction
+	var CollAction1 : CollaborationAction .
+
+	var Coll1 : Collaboration .
+	var ProcElements1 : ProcElements .
+
+
+
+
+
+	---isInterleaving
+	ceq isInterleaving(Action1) = false if Action1 :: TokenUpdate or Action1 :: Kill .
+	eq isInterleaving(Action1) = true [otherwise] .
+
+	---isInternal
+	ceq isInternal(Action1) = true if Action1 :: InternalAction .
+	eq isInternal(Action1) = false [otherwise] .
+
+  ---isSndAction
+	ceq isSndAction(Action1) = true if Action1 :: SndAction .
+	eq isSndAction(Action1) = false [otherwise] .
+
+  ---isSndCollab
+	ceq isSndCollab(CollAction1) = true if CollAction1 :: SndCollab .
+	eq isSndCollab(CollAction1) = false [otherwise] .
+
+	---increaseTokenEdgeSet( Edges , Edges)
+	ceq increaseTokenEdgeSet(IEName . IEToken and Edges1 , Edges2) =
+			IEName . increaseToken(IEToken) and increaseTokenEdgeSet(Edges1 , Edges2) if IEName inEdges Edges2 == true .
+	eq increaseTokenEdgeSet(IEName . IEToken and Edges1 , Edges2) =
+		 IEName . IEToken and increaseTokenEdgeSet(Edges1 , Edges2) [otherwise] .
+
+  ---increaseTokenEdgeSet( Edge , Edges)
+	eq increaseTokenEdgeSet(emptyEdgeSet , Edges2) =
+			emptyEdgeSet .
+	ceq increaseTokenEdgeSet(IEName . IEToken , Edges2) =
+	 		IEName . increaseToken(IEToken) if IEName inEdges Edges2 == true .
+	eq increaseTokenEdgeSet(IEName . IEToken , Edges2) =
+			IEName . IEToken [owise] .
+
+  ---decreaseTokenEdgeSet( Edges , Edges)
+	ceq decreaseTokenEdgeSet(IEName . IEToken and Edges1 , Edges2) =
+			IEName . decreaseToken(IEToken) and decreaseTokenEdgeSet(Edges1 , Edges2) if IEToken > 0 /\ IEName inEdges Edges2 .
+	eq decreaseTokenEdgeSet(IEName . IEToken and Edges1 , Edges2) =
+			IEName . IEToken and decreaseTokenEdgeSet(Edges1 , Edges2) [otherwise] .
+
+  ---decreaseTokenEdgeSet( Edge , Edges)
+	eq 	decreaseTokenEdgeSet(emptyEdgeSet , Edges2) =
+			emptyEdgeSet .
+	ceq decreaseTokenEdgeSet(IEName . IEToken , Edges2) =
+			IEName . decreaseToken(IEToken) if IEToken > 0 /\ IEName inEdges Edges2 .
+	eq 	decreaseTokenEdgeSet(IEName . IEToken , Edges2) =
+	 		IEName . IEToken [otherwise] .
+
+	---Edges intersect Edges
+	eq emptyEdgeSet intersect Edges2 =
+		emptyEdgeSet  .
+	eq Edges1 intersect emptyEdgeSet =
+			emptyEdgeSet  .
+	ceq IEName . IEToken and Edges1 intersect Edges2 =
+		  IEName . IEToken and ( Edges1  intersect Edges2 ) if IEName inEdges Edges2 .
+	eq IEName . IEToken and Edges1 intersect Edges2 =
+		 Edges1 intersect Edges2  [otherwise] .
+
+	---Edge intersect Edges
+	ceq IEName . IEToken intersect Edges2 = IEName . IEToken if IEName inEdges Edges2 .
+	eq IEName . IEToken intersect Edges2 = emptyEdgeSet [otherwise] .
+
+	ceq tokenUpdEdges( Edges0, tUpd(Edges1 , Edges2)) =
+			increaseTokenEdgeSet( Edges0 , Edges0 intersect Edges2) if Edges0 intersect Edges2 =/= emptyEdgeSet .
+	ceq tokenUpdEdges( Edges0, tUpd(Edges1 , Edges2)) =
+			decreaseTokenEdgeSet( Edges0 , Edges0 intersect Edges1) if Edges0 intersect Edges1 =/= emptyEdgeSet .
+	eq tokenUpdEdges( Edges0, tUpd(Edges1 , Edges2)) = Edges0 [owise] .
+
+---tokenUpd(InterRcvSet , tUpd(Edges, Edges))
+ceq tokenUpd( interRcv ^ eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) , tUpd( Edges1 , Edges2  ) )
+ 			 =  tokenUpd( interRcv , tUpd( Edges1 , Edges2 )) ^ eventInterRcv( Status1 , EName . decreaseToken(EToken) , MsgName1 .msg  MsgToken1  ) if EName inEdges Edges1 .
+eq tokenUpd( interRcv ^ eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) , tUpd( Edges1 , Edges2  ) )
+			 =  tokenUpd( interRcv , tUpd( Edges1 , Edges2 )) ^ eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) [otherwise] .
+
+ceq tokenUpd( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) , tUpd( Edges1 , Edges2  ) )
+			 =  eventInterRcv( Status1 , EName . decreaseToken(EToken) , MsgName1 .msg  MsgToken1  ) if EName inEdges Edges1 .
+eq tokenUpd( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) , tUpd( Edges1 , Edges2  ) )
+ 			 =  eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) [otherwise] .
+
+
+	---tokenUpd(Edge , tUpd(Edges, Edges))
+	ceq tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) =
+			OEName . increaseToken(OEToken) if OEName inEdges Edges2 .
+	ceq tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) =
+			OEName . decreaseToken(OEToken) if OEName inEdges Edges1 .
+	ceq tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) =
+			OEName . OEToken if (OEName inEdges Edges2 =/= true) /\ (OEName inEdges Edges1 =/= true) .
+
+
+	eq markingUpdate(emptyProcElements , tUpd( Edges1 , Edges2  ))
+	 = emptyProcElements   .
+
+***Singolo ProcElement
+	---markingUpdate defined for start
+	eq markingUpdate( start( Status1 , OEName . OEToken ) , tUpd( Edges1 , Edges2  ))
+	 	 = start( Status1 , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )))   .
+
+	---markingUpdate defined for task
+	eq markingUpdate( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) , tUpd( Edges1 , Edges2  ) )
+	 	 =  task( Status1 , tokenUpd(  IEName . IEToken  , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) , TName )  .
+
+	---markingUpdate defined for end
+	eq markingUpdate(  end( Status1 , OEName . OEToken ) , tUpd( Edges1 , Edges2  ))
+	 	 =  end( Status1 , tokenUpd( OEName . OEToken  , tUpd( Edges1 , Edges2  ))) .
+
+	---markingUpdate defined for xorSplit
+	eq markingUpdate ( xorSplit( IEName . IEToken , edges( Edges0 )  )   , tUpd( Edges1 , Edges2  ) )
+		 	= xorSplit( tokenUpd(IEName . IEToken , tUpd( Edges1 , Edges2  )) , edges( tokenUpdEdges( Edges0 , tUpd( Edges1 , Edges2 ))))  .
+
+	---markingUpdate defined for andSplit
+	eq markingUpdate ( andSplit( IEName . IEToken ,edges( Edges0 ) ) , tUpd( Edges1 , Edges2  ) )
+		  = andSplit( tokenUpd(IEName . IEToken , tUpd( Edges1 , Edges2  )) , edges( tokenUpdEdges( Edges0 , tUpd( Edges1 , Edges2 )))) .
+
+	---markingUpdate defined for orSplit
+	eq markingUpdate ( orSplit( IEName . IEToken , edges( Edges0 ) ) , tUpd( Edges1 , Edges2  ) )
+			= orSplit( tokenUpd(IEName . IEToken , tUpd( Edges1 , Edges2  )) , edges(tokenUpdEdges( Edges0 , tUpd( Edges1 , Edges2 ))))  .
+
+	---markingUpdate defined for xorJoin
+	 eq markingUpdate( xorJoin( edges( Edges0 ) , IEName . IEToken ) , tUpd( Edges1 , Edges2  ) )
+	 = xorJoin( edges(tokenUpdEdges( Edges0  , tUpd( Edges1 , Edges2  ))) , tokenUpd(IEName . IEToken ,  tUpd( Edges1 , Edges2  ) )) .
+
+	---markingUpdate defined for andJoin
+	eq markingUpdate( andJoin( edges( Edges0 ) , IEName . IEToken ) , tUpd( Edges1 , Edges2  ) )
+	= andJoin(  edges(tokenUpdEdges( Edges0 , tUpd( Edges1 , Edges2  ))) , tokenUpd(IEName . IEToken ,  tUpd( Edges1 , Edges2  ) ) )  .
+
+	---markingUpdate defined for eventSplit
+	eq markingUpdate ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) , tUpd( Edges1 , Edges2  ) )
+					= eventSplit( tokenUpd(IEName . IEToken , tUpd( Edges1 , Edges2  )) , eventRcvSplit(tokenUpd( interRcv , tUpd( Edges1 , Edges2 ) ) ) ) .
+
+	---markingUpdate defined for startRcv
+	eq markingUpdate( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) , tUpd( Edges1 , Edges2 ))
+	 	  =  startRcv(Status1 ,  tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )), MsgName1 .msg MsgToken1 ) .
+
+	---markingUpdate defined for taskSnd
+	eq markingUpdate( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ) , tUpd( Edges1 , Edges2  ) )
+			=  taskSnd( Status1 ,  tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) , MsgName1 .msg MsgToken1 , TName ) .
+
+	---markingUpdate defined for taskRcv
+	eq markingUpdate( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ) , tUpd( Edges1 , Edges2  ) )
+			=  taskRcv( Status1 ,  tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) , MsgName1 .msg MsgToken1 , TName ) .
+
+	---markingUpdate defined for interSnd
+	eq markingUpdate( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 )   , tUpd( Edges1 , Edges2  ) )
+	 		=  interSnd( Status1 , tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) ,  MsgName1 .msg MsgToken1 ) .
+
+	---markingUpdate defined for interRcv
+	eq markingUpdate(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  )   , tUpd( Edges1 , Edges2  ) )
+		  =  interRcv( Status1 , tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) ,  MsgName1 .msg MsgToken1 ) .
+
+	---markingUpdate defined for endSnd
+	eq markingUpdate( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) , tUpd( Edges1 , Edges2  ) )
+		  =  endSnd( Status1 , tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) ,  MsgName1 .msg MsgToken1 ) .
+
+	---markingUpdate defined for terminate
+	eq markingUpdate( terminate( Status1 , OEName . OEToken ) , tUpd( Edges1 , Edges2  ) )
+			=  terminate( Status1 , tokenUpd(OEName . OEToken , tUpd( Edges1 , Edges2  )))  .
+
+***Exception
+eq markingUpdate( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , tUpd( Edges1 , Edges2  )  )
+		=  taskBNI( Status1 ,  tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )  .
+
+eq markingUpdate( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )  , tUpd( Edges1 , Edges2  )  )
+		=  taskBI( Status1 ,  tokenUpd( IEName . IEToken , tUpd( Edges1 , Edges2  )) , tokenUpd( OEName . OEToken , tUpd( Edges1 , Edges2  )) , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )  .
+
+
+eq markingUpdate( ProcElem1 | ProcElements1  , tUpd( Edges1 , Edges2  ) )
+ = markingUpdate( ProcElem1, tUpd( Edges1 , Edges2  ) ) | markingUpdate(ProcElements1  , tUpd( Edges1 , Edges2  ) )  .
+
+	--- EdgeName inEdges emptyEdgeSet
+	eq EName inEdges emptyEdgeSet = false .
+	--- EdgeName inEdges Edge
+	ceq EName inEdges IEName . IEToken
+	   	= false if EName =/= IEName .
+	ceq EName inEdges IEName . IEToken
+	  	= true if EName == IEName .
+	ceq EName inEdges IEName . IEToken and Edges0
+	  	= true if IEName == EName .
+	eq EName inEdges IEName . IEToken and Edges0
+	  	= false [otherwise] .
+
+	--- MsgName inMsgs emptyMsgSet
+	eq MsgName1 inMsgs emptyMsgSet = false .
+	--- MsgName inMsgs
+	ceq MsgName1 inMsgs MsgName2 .msg MsgToken2
+	   	= false if MsgName1 =/= MsgName2 .
+	ceq MsgName1 inMsgs MsgName2 .msg MsgToken2
+	  	= true if MsgName1 == MsgName2 .
+	ceq MsgName1 inMsgs MsgName2 .msg MsgToken2 andmsg Msgs1
+	  	= true if MsgName2 == MsgName1 .
+	eq MsgName1 inMsgs MsgName2 .msg MsgToken2 andmsg Msgs1
+	  	= false [otherwise] .
+
+	---incMsgs(Msg , MsgName)
+	ceq incMsgs( MsgName1 .msg MsgToken1 , MsgName2  )
+		= MsgName1 .msg increaseToken( MsgToken1 ) if MsgName1 = MsgName2 .
+	eq incMsgs( MsgName1 .msg MsgToken1 , MsgName2 )
+		= MsgName1 .msg MsgToken1 [otherwise] .
+	ceq incMsgs( MsgName1 .msg MsgToken1 andmsg Msgs1 , MsgName2  )
+		= MsgName1 .msg increaseToken( MsgToken1 ) andmsg Msgs1 if MsgName1 = MsgName2 .
+	eq incMsgs( MsgName1 .msg MsgToken1 andmsg Msgs1 , MsgName2 )
+		= MsgName1 .msg MsgToken1 andmsg incMsgs( Msgs1 , MsgName2  ) [otherwise] .
+
+	---decMsgs(Msg , MsgName)
+	ceq decMsgs( MsgName1 .msg MsgToken1 , MsgName2  )
+		= MsgName1 .msg decreaseToken( MsgToken1 ) if MsgName1 = MsgName2 .
+	eq decMsgs( MsgName1 .msg MsgToken1 , MsgName2  )
+		= MsgName1 .msg MsgToken1 [otherwise] .
+	ceq decMsgs( MsgName1 .msg MsgToken1 andmsg Msgs1 , MsgName2  )
+		= MsgName1 .msg decreaseToken( MsgToken1 ) andmsg Msgs1 if MsgName1 = MsgName2 .
+	eq decMsgs( MsgName1 .msg MsgToken1 andmsg Msgs1 , MsgName2  )
+		= MsgName1 .msg MsgToken1 andmsg decMsgs( Msgs1 , MsgName2  ) [otherwise] .
+
+	---increase an EdgeToken by 1
+	---limitator of 9 tokens
+	---ceq increaseToken( EToken ) = EToken + 1 if EToken < 10 .
+	---eq increaseToken( EToken ) = EToken [otherwise] .
+	---without limitator
+	eq increaseToken( EToken ) = EToken + 1 .
+
+	---decrease an EdgeToken by 1
+	eq decreaseToken( EToken ) = EToken - 1 .
+
+	---incAllEdges( Edges , Edge )
+	eq incAllEdges( emptyEdgeSet ) = emptyEdgeSet .
+	eq incAllEdges( Edges0 and IEName . IEToken )
+	= IEName . increaseToken( IEToken ) and incAllEdges( Edges0 ) .
+	eq incAllEdges( IEName . IEToken )
+	= IEName . increaseToken( IEToken ) .
+
+	------checkAllEdges if any has 10 tokens return true
+	---eq checkAllEdges( emptyEdgeSet ) = false .
+	---eq checkAllEdges( IEName . 9 ) = true .
+	---eq checkAllEdges( Edges0 and IEName . 9 ) = true .
+
+	---eq checkAllEdges( Edges0 ) = false [otherwise] .
+
+
+	------fixAllEdges if any has 10 tokens return true
+	---eq fixAllEdges( emptyEdgeSet ) = emptyEdgeSet .
+
+	------ceq fixAllEdges( Edges0 and IEName . IEToken )
+	------= IEName . 0 and fixAllEdges( Edges0 ) if IEToken > 0 /\ IEToken < 10 .
+	------	ceq fixAllEdges( Edges0 and IEName . IEToken )
+	------= IEName . 0 and fixAllEdges( Edges0 ) if IEToken > 0 /\ IEToken < 10 .
+
+
+	---ceq fixAllEdges( Edges0 and IEName . IEToken )
+	---= IEName . 1 and fixAllEdges( Edges0 ) if IEToken = 9 .
+	---eq fixAllEdges( Edges0 and IEName . IEToken )
+	---= IEName . IEToken and fixAllEdges( Edges0 ) [otherwise] .
+
+	------eq fixAllEdges( Edges0 and IEName . 10 ) = IEName . 1 and fixAllEdges( Edges0 ) .
+	------eq fixAllEdges( Edges0 and IEName . IEToken ) = Edges0 and IEName . IEToken [otherwise] .
+
+
+	------ceq fixAllEdges( IEName . IEToken )
+	------= IEName . 0 if IEToken > 0 /\ IEToken < 10 .
+	---ceq fixAllEdges( IEName . IEToken )= IEName . 1 if IEToken = 9 .
+	---eq fixAllEdges( IEName . IEToken )= IEName . IEToken [otherwise] .
+
+
+
+
+	---allTokenSet?( Edge )
+	ceq allTokenSet?( IEName . IEToken )
+			= false if IEToken == 0 .
+	eq allTokenSet?( IEName . IEToken )
+			= true [otherwise] .
+	---allTokenSet?(Edge and Edges)
+	ceq allTokenSet?( IEName . IEToken and Edges0 )
+			 = false if IEToken == 0 .
+	eq allTokenSet?( IEName . IEToken and Edges0 )
+			 = true [otherwise] .
+
+	---noTokenSet?( Edge )
+	ceq noTokenSet?( IEName . IEToken )
+			= false if IEToken > 0 .
+	eq noTokenSet?( IEName . IEToken )
+			= true [otherwise] .
+	---noTokenSet?(Edge and Edges)
+	ceq noTokenSet?( IEName . IEToken and Edges0 )
+			 = false if IEToken > 0 .
+	eq noTokenSet?( IEName . IEToken and Edges0 )
+			 = true [otherwise] .
+
+			 ---noTokenPresent defined for start
+			 eq noTokenPresent( start( disabled , OEName . 0 ) )
+			 	 = true .
+				 ---noTokenPresent defined for start
+				 eq noTokenPresent( start( Status1 , OEName . OEToken ) )
+				 = false [otherwise] .
+			 ---noTokenPresent defined for task
+			 eq noTokenPresent( task( disabled , IEName . 0 , OEName . 0 , TName  ) )
+			 	 =  true .
+				 ---noTokenPresent defined for task
+				 eq noTokenPresent( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+				 =  false [otherwise] .
+			 ---noTokenPresent defined for end
+			 eq noTokenPresent(  end( Status1 , OEName . 0 ))
+			 	 =  true .
+				 ---noTokenPresent defined for end
+				 eq noTokenPresent( end( Status1 , OEName . OEToken ) )
+				 =  false [otherwise] .
+			 ---noTokenPresent defined for xorSplit
+			 ceq noTokenPresent ( xorSplit( IEName . 0 , edges( Edges0 )  ) )
+			 		= true if noTokenSet?(Edges0) = true .
+					---noTokenPresent defined for xorSplit
+					eq noTokenPresent ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+					= false [otherwise] .
+			 ---noTokenPresent defined for andSplit
+			 ceq noTokenPresent ( andSplit( IEName . 0 ,edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---noTokenPresent defined for andSplit
+					eq noTokenPresent ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---noTokenPresent defined for orSplit
+			 ceq noTokenPresent ( orSplit( IEName . 0 , edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---noTokenPresent defined for orSplit
+					eq noTokenPresent ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---noTokenPresent defined for xorJoin
+			  ceq noTokenPresent( xorJoin( edges( Edges0 ) , IEName . 0 ) )
+			  = true if noTokenSet?(Edges0) = true  .
+				---noTokenPresent defined for xorJoin
+				 eq noTokenPresent( xorJoin( edges( Edges0 ) , IEName . IEToken ) )
+				 = false [otherwise] .
+			 ---noTokenPresent defined for andJoin
+			 ceq noTokenPresent( andJoin( edges( Edges0 ) , IEName . 0 ) )
+			 = true if noTokenSet?(Edges0) = true .
+			 ---noTokenPresent defined for andJoin
+			 eq noTokenPresent( andJoin( edges( Edges0 ) , IEName . IEToken ) )
+			 = false [otherwise] .
+			 ---noTokenPresent defined for eventSplit
+			 eq noTokenPresent ( eventSplit( IEName . 0 , eventRcvSplit( interRcv ) ) )
+			 		= true .
+					---noTokenPresent defined for eventSplit
+			 eq noTokenPresent ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+				= false [otherwise] .
+			 ---noTokenPresent defined for startRcv
+			 eq noTokenPresent( startRcv(disabled ,  OEName . 0 , MsgName1 .msg MsgToken1 ) )
+			 		=  true .
+					---noTokenPresent defined for startRcv
+				 eq noTokenPresent( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+				 =  false [otherwise] .
+			 ---noTokenPresent defined for taskSnd
+			 eq noTokenPresent( taskSnd( disabled , IEName . 0, OEName . 0  , MsgName1 .msg MsgToken1 , TName  ))
+			 		=  true .
+					---noTokenPresent defined for taskSnd
+					eq noTokenPresent( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+					=  false [otherwise] .
+			 ---noTokenPresent defined for taskRcv
+			 eq noTokenPresent( taskRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName ))
+			 		=  true .
+					---noTokenPresent defined for taskRcv
+					eq noTokenPresent( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+					=  false [otherwise] .
+			 ---noTokenPresent defined for interSnd
+			 eq noTokenPresent( interSnd( disabled, IEName . 0 , OEName . 0 ,  MsgName1 .msg MsgToken1 ) )
+			 		=  true .
+					---noTokenPresent defined for interSnd
+					eq noTokenPresent( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+					=  false [otherwise] .
+			 ---noTokenPresent defined for interRcv
+			 eq noTokenPresent(  interRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1  ) )
+			 		=  true .
+					---noTokenPresent defined for interRcv
+					eq noTokenPresent(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+					 =  false [otherwise] .
+			 ---noTokenPresent defined for endSnd
+			 eq noTokenPresent( endSnd( disabled , IEName . 0 ,  MsgName1 .msg MsgToken1  ) )
+			 		=  true .
+					---noTokenPresent defined for endSnd
+					eq noTokenPresent( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+					 =  false [otherwise] .
+			 ---noTokenPresent defined for terminate
+			 eq noTokenPresent( terminate( disabled , OEName . 0 ) )
+			 		=  true .
+					---noTokenPresent defined for terminate
+					eq noTokenPresent( terminate( Status1 , OEName . OEToken ) )
+					 =  false [otherwise] .
+			 ***noTokenPresent Exception
+			 eq noTokenPresent( taskBNI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+			 	=  true .
+				***noTokenPresent Exception
+				eq noTokenPresent( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+			 eq noTokenPresent( taskBI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+			 	=  true .
+				eq noTokenPresent( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+				eq noTokenPresent( emptyProcElements )
+	 			=  true .
+
+			 ceq noTokenPresent( ProcElem1 | ProcElements1  )
+			 = false if noTokenPresent( ProcElem1 ) = false .
+			 eq noTokenPresent( ProcElem1 | ProcElements1  )
+			 = true [otherwise] .
+
+
+
+---noMultipleTokenPresent notSafe detection
+---noMultipleTokenPresent defined for start
+ceq noMultipleTokenPresent( start( Status1 , OEName . OEToken ) )
+	= false if OEToken > 1 .
+	---noMultipleTokenPresent defined for start
+	eq noMultipleTokenPresent( start( Status1 , OEName . OEToken ) )
+	= true  [otherwise] .
+---noMultipleTokenPresent defined for task
+ceq noMultipleTokenPresent( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  false if IEToken > 1 or OEToken > 1 .
+	---noMultipleTokenPresent defined for task
+	eq noMultipleTokenPresent( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  true [otherwise] .
+---noMultipleTokenPresent defined for end
+ceq noMultipleTokenPresent(  end( Status1 , OEName . OEToken ))
+	=  false if OEToken > 1 .
+	---noMultipleTokenPresent defined for end
+	eq noMultipleTokenPresent( end( Status1 , OEName . OEToken ) )
+	=  true [otherwise] .
+---noMultipleTokenPresent defined for xorSplit
+ceq noMultipleTokenPresent( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 = false if IEToken > 1 .
+	 ---MANCA QUESTA PARTE --> ANDREBBE CAMBIATA...FORSE...FORSE NON SERVE\/ noTokenSet?(Edges0) = true .
+	 ceq noMultipleTokenPresent ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 	 = false if multipleTokenPresentEdges( Edges0 ) = true .
+
+
+	 ---noMultipleTokenPresent defined for xorSplit
+	 eq noMultipleTokenPresent( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 = true [otherwise] .
+---noMultipleTokenPresent defined for andSplit
+ceq noMultipleTokenPresent( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+	 = false if IEToken > 1  .
+	---noMultipleTokenPresent defined for andSplit
+	 ceq noMultipleTokenPresent( andSplit( IEName . IEToken , edges( Edges0 )  ) )
+		 = false if multipleTokenPresentEdges( Edges0 ) = true .
+	 ---noMultipleTokenPresent defined for andSplit
+	 eq noMultipleTokenPresent( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+	 = true [otherwise] .
+---noMultipleTokenPresent defined for orSplit
+ceq noMultipleTokenPresent( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+	 = false if IEToken > 1  .
+---NON SERVE 	 multipleTokenPresentEdges, BASTA FARE COME SOTO
+	 ---noMultipleTokenPresent defined for andSplit
+	---	ceq noMultipleTokenPresent ( orSplit( IEName . IEToken , edges( OEName . OEToken and Edges0 )  ) )
+---			= false if OEToken > 1 .
+
+	---noMultipleTokenPresent defined for andSplit
+		ceq noMultipleTokenPresent( orSplit( IEName . IEToken , edges( Edges0 )  ) )
+			= false if multipleTokenPresentEdges( Edges0 ) = true .
+	 ---noMultipleTokenPresent defined for orSplit
+	 eq noMultipleTokenPresent ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+	 = true [otherwise] .
+---noMultipleTokenPresent defined for xorJoin
+ ceq noMultipleTokenPresent( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+ = false if OEToken > 1  .
+ ceq noMultipleTokenPresent ( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+	 = false if multipleTokenPresentEdges( Edges0 ) = true .
+ ---noMultipleTokenPresent defined for xorJoin
+	eq noMultipleTokenPresent( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+	= true [otherwise] .
+---noMultipleTokenPresent defined for andJoin
+ceq noMultipleTokenPresent( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+= false if OEToken > 1  .
+ceq noMultipleTokenPresent( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+	= false if multipleTokenPresentEdges( Edges0 ) = true .
+---noMultipleTokenPresent defined for andJoin
+eq noMultipleTokenPresent( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+= true [otherwise] .
+---noMultipleTokenPresent defined for eventSplit
+ceq noMultipleTokenPresent( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+	 = false if IEToken > 1 .
+	 ---noMultipleTokenPresent defined for eventSplit
+eq noMultipleTokenPresent( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+ = true [otherwise] .
+---noMultipleTokenPresent defined for startRcv
+ceq noMultipleTokenPresent( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	 =  false if OEToken > 1 .
+	 ---noMultipleTokenPresent defined for startRcv
+	eq noMultipleTokenPresent( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	=  true [otherwise] .
+---noMultipleTokenPresent defined for taskSnd
+ceq noMultipleTokenPresent( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  false if IEToken > 1 or OEToken > 1 .
+	 ---noMultipleTokenPresent defined for taskSnd
+	 eq noMultipleTokenPresent( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  true [otherwise] .
+---noMultipleTokenPresent defined for taskRcv
+ceq noMultipleTokenPresent( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  false if IEToken > 1 or OEToken > 1 .
+	 ---noMultipleTokenPresent defined for taskRcv
+	 eq noMultipleTokenPresent( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  true [otherwise] .
+---noMultipleTokenPresent defined for interSnd
+ceq noMultipleTokenPresent( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  false if IEToken > 1 or OEToken > 1 .
+	 ---noMultipleTokenPresent defined for interSnd
+	 eq noMultipleTokenPresent( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  true [otherwise] .
+---noMultipleTokenPresent defined for interRcv
+ceq noMultipleTokenPresent(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+	 =  false if IEToken > 1 or OEToken > 1 .
+	 ---noMultipleTokenPresent defined for interRcv
+	 eq noMultipleTokenPresent(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+		=  true [otherwise] .
+---noMultipleTokenPresent defined for endSnd
+ceq noMultipleTokenPresent( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+	 =  false if IEToken > 1 .
+	 ---noMultipleTokenPresent defined for endSnd
+	 eq noMultipleTokenPresent( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+		=  true [otherwise] .
+---noMultipleTokenPresent defined for terminate
+ceq noMultipleTokenPresent( terminate( Status1 , OEName . OEToken ) )
+	 =  false if OEToken > 1 .
+	 ---noMultipleTokenPresent defined for terminate
+	 eq noMultipleTokenPresent( terminate( Status1 , OEName . OEToken ) )
+		=  true [otherwise] .
+***noMultipleTokenPresent Exception
+ceq noMultipleTokenPresent( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  false if IEToken > 1 or OEToken > 1 .
+ ***noMultipleTokenPresent Exception
+ eq noMultipleTokenPresent( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  true [otherwise] .
+
+ceq noMultipleTokenPresent( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  false if IEToken > 1 or OEToken > 1 .
+ eq noMultipleTokenPresent( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  true [otherwise] .
+
+ eq noMultipleTokenPresent( emptyProcElements )
+ =  true .
+
+
+---INVERTI
+ceq noMultipleTokenPresent( ProcElem1 | ProcElements1  )
+= false if noMultipleTokenPresent( ProcElem1 ) = false .
+eq noMultipleTokenPresent( ProcElem1 | ProcElements1  )
+  = true [otherwise] .
+
+
+---noMessagePending pending in a Msgs of a pool
+---pool(_,_,in:_,out:_)
+--- MsgName inMsgs emptyMsgSet
+
+eq noMessagePending ( MsgName2 .msg MsgToken2 andmsg Msgs1 ) =
+   noMessagePending( MsgName2 .msg MsgToken2 ) + noMessagePending( Msgs1 ) .
+
+eq noMessagePending( emptyMsgSet ) = 0 .
+
+eq noMessagePending( MsgName2 .msg MsgToken2 )
+	 = MsgToken2 .
+
+eq noMultipleMessagePending ( MsgName2 .msg MsgToken2 andmsg Msgs1 ) =
+	 noMultipleMessagePending( MsgName2 .msg MsgToken2 ) and noMultipleMessagePending( Msgs1 ) .
+
+eq noMultipleMessagePending( emptyMsgSet ) = true .
+
+ceq noMultipleMessagePending( MsgName2 .msg MsgToken2 )
+	 = false if MsgToken2 > 1 .
+eq noMultipleMessagePending( MsgName2 .msg MsgToken2 )
+	 = true [otherwise] .
+
+
+eq MsgName1 inMsgs emptyMsgSet = false .
+--- MsgName inMsgs
+ceq MsgName1 inMsgs MsgName2 .msg MsgToken2
+		= false if MsgName1 =/= MsgName2 .
+ceq MsgName1 inMsgs MsgName2 .msg MsgToken2
+		= true if MsgName1 == MsgName2 .
+ceq MsgName1 inMsgs MsgName2 .msg MsgToken2 andmsg Msgs1
+		= true if MsgName2 == MsgName1 .
+eq MsgName1 inMsgs MsgName2 .msg MsgToken2 andmsg Msgs1
+		= false [otherwise] .
+
+
+
+***noMultipleTokenPresentAround
+---noMultipleTokenPresentAround notSafe detection
+---noMultipleTokenPresentAround defined for start
+ceq noMultipleTokenPresentAround( start( Status1 , OEName . OEToken ) )
+	= 0 if OEToken = 0 /\ Status1 = disabled .
+	---noMultipleTokenPresentAround defined for start
+	eq noMultipleTokenPresentAround( start( Status1 , OEName . OEToken ) )
+	= 1  [otherwise] .
+---noMultipleTokenPresentAround defined for task
+ceq noMultipleTokenPresentAround( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+	---noMultipleTokenPresentAround defined for task
+	eq noMultipleTokenPresentAround( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  1 [otherwise] .
+---noMultipleTokenPresentAround defined for end
+ceq noMultipleTokenPresentAround(  end( Status1 , OEName . OEToken ))
+	=  0 if OEToken = 0 /\ Status1 = disabled .
+	---noMultipleTokenPresentAround defined for end
+	eq noMultipleTokenPresentAround( end( Status1 , OEName . OEToken ) )
+	=  1 [otherwise] .
+---noMultipleTokenPresentAround defined for xorSplit
+ceq noMultipleTokenPresentAround ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 = 0 if IEToken = 0 .
+	 ---MANCA QUESTA PARTE --> ANDREBBE CAMBIATA...FORSE...FORSE NON SERVE\/ noTokenSet?(Edges0) = true .
+	 ---noMultipleTokenPresentAround defined for xorSplit
+	 eq noMultipleTokenPresentAround ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 = 1 [otherwise] .
+---noMultipleTokenPresentAround defined for andSplit
+ceq noMultipleTokenPresentAround ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+	 = 0 if IEToken = 0  .
+	 ---noMultipleTokenPresentAround defined for andSplit
+	 eq noMultipleTokenPresentAround ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+	 = 1 [otherwise] .
+---noMultipleTokenPresentAround defined for orSplit
+ceq noMultipleTokenPresentAround ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+	 = 0 if IEToken = 0  .
+	 ---noMultipleTokenPresentAround defined for orSplit
+	 eq noMultipleTokenPresentAround ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+	 = 1 [otherwise] .
+---noMultipleTokenPresentAround defined for xorJoin
+ ceq noMultipleTokenPresentAround( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+ = 0 if OEToken = 0  .
+ ---noMultipleTokenPresentAround defined for xorJoin
+	eq noMultipleTokenPresentAround( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+	= 1 [otherwise] .
+---noMultipleTokenPresentAround defined for andJoin
+ceq noMultipleTokenPresentAround( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+= 0 if OEToken = 0  .
+---noMultipleTokenPresentAround defined for andJoin
+eq noMultipleTokenPresentAround( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+= 1 [otherwise] .
+---noMultipleTokenPresentAround defined for eventSplit
+ceq noMultipleTokenPresentAround ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+	 = 0 if IEToken = 0 .
+	 ---noMultipleTokenPresentAround defined for eventSplit
+eq noMultipleTokenPresentAround ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+ = 1 [otherwise] .
+---noMultipleTokenPresentAround defined for startRcv
+ceq noMultipleTokenPresentAround( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	 =  0 if OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for startRcv
+	eq noMultipleTokenPresentAround( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	=  1 [otherwise] .
+---noMultipleTokenPresentAround defined for taskSnd
+ceq noMultipleTokenPresentAround( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for taskSnd
+	 eq noMultipleTokenPresentAround( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  1 [otherwise] .
+---noMultipleTokenPresentAround defined for taskRcv
+ceq noMultipleTokenPresentAround( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for taskRcv
+	 eq noMultipleTokenPresentAround( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  1 [otherwise] .
+---noMultipleTokenPresentAround defined for interSnd
+ceq noMultipleTokenPresentAround( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for interSnd
+	 eq noMultipleTokenPresentAround( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  1 [otherwise] .
+---noMultipleTokenPresentAround defined for interRcv
+ceq noMultipleTokenPresentAround(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+	 =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for interRcv
+	 eq noMultipleTokenPresentAround(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+		=  1 [otherwise] .
+---noMultipleTokenPresentAround defined for endSnd
+ceq noMultipleTokenPresentAround( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+	 =  0 if IEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for endSnd
+	 eq noMultipleTokenPresentAround( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+		=  1 [otherwise] .
+---noMultipleTokenPresentAround defined for terminate
+ceq noMultipleTokenPresentAround( terminate( Status1 , OEName . OEToken ) )
+	 =  0 if OEToken = 0 /\ Status1 = disabled .
+	 ---noMultipleTokenPresentAround defined for terminate
+	 eq noMultipleTokenPresentAround( terminate( Status1 , OEName . OEToken ) )
+		=  1 [otherwise] .
+***noMultipleTokenPresentAround Exception
+ceq noMultipleTokenPresentAround( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+ ***noMultipleTokenPresentAround Exception
+ eq noMultipleTokenPresentAround( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  1 [otherwise] .
+
+ceq noMultipleTokenPresentAround( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  0 if IEToken = 0 /\ OEToken = 0 /\ Status1 = disabled .
+ eq noMultipleTokenPresentAround( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  1 [otherwise] .
+
+ eq noMultipleTokenPresentAround( emptyProcElements )
+ =  0 .
+
+ eq noMultipleTokenPresentAround( ProcElem1 | ProcElements1 )
+ = 0 + noMultipleTokenPresentAround( ProcElem1 ) + noMultipleTokenPresentAround(ProcElements1 ) .
+ ---  eq noMultipleTokenPresentAround( ProcElem1 | ProcElements1  )
+ ---  = false [otherwise] .
+
+
+
+
+***countTokens
+eq countTokens( Edges0 and IEName . IEToken ) = countTokens( Edges0 ) + float( IEToken ) .
+eq countTokens( IEName . IEToken ) = float( IEToken ) .
+eq countTokens( emptyEdgeSet ) = 0.0 .
+
+---noInterRcvSet( Edge )
+ceq countTokens( eventInterRcv( Status1 , IEName . IEToken , MsgName1 .msg  MsgToken1  ) )
+		= float( IEToken ) + 1.0 if Status1 =/= disabled .
+eq countTokens( eventInterRcv( Status1 , IEName . IEToken , MsgName1 .msg  MsgToken1  ) )
+		= float( IEToken ) [otherwise] .
+---countTokens(Edge and Edges)
+eq countTokens( eventInterRcv( Status1 , IEName . IEToken , MsgName1 .msg  MsgToken1  ) ^ interRcv )
+		 =  countTokens(eventInterRcv( Status1 , IEName . IEToken , MsgName1 .msg  MsgToken1  )) + countTokens( interRcv ) .
+
+
+---countTokens to count number of token present in the model in a certain moment
+***countTokens
+
+---countTokens defined for start
+ceq countTokens( start( Status1 , OEName . OEToken ) )
+	= float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for start
+eq countTokens( start( Status1 , OEName . OEToken ) )
+	= float( OEToken ) [otherwise] .
+
+---countTokens defined for task
+ceq countTokens( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for task
+eq countTokens( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+	=  float( OEToken ) [otherwise] .
+
+---countTokens defined for end
+ceq countTokens(  end( Status1 , OEName . OEToken ))
+	=  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for end
+eq countTokens( end( Status1 , OEName . OEToken ) )
+	=  float( OEToken ) [otherwise] .
+
+---countTokens defined for xorSplit
+eq countTokens ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+	 = countTokens( Edges0 )  .
+
+---countTokens defined for andSplit
+eq countTokens ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+	 = countTokens( Edges0 ) .
+
+
+---countTokens defined for orSplit
+eq countTokens ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+	 = countTokens( Edges0 )  .
+
+---countTokens defined for xorJoin
+eq countTokens( xorJoin( edges( Edges0 ) , OEName . OEToken ) )
+ = countTokens( Edges0 ) + float( OEToken ) .
+
+
+---countTokens defined for andJoin
+eq countTokens( andJoin( edges( Edges0 ) , OEName . OEToken ) )
+=  countTokens( Edges0 ) + float( OEToken ) .
+
+---countTokens defined for eventSplit DA DEFINIRE countTokens( interRcv )
+eq countTokens ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+	 = countTokens( interRcv ) .
+
+---countTokens defined for startRcv
+ceq countTokens( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	 =  float( OEToken ) + 1.0 if Status1 =/= disabled .
+
+---countTokens defined for startRcv
+eq countTokens( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	=  float( OEToken ) [otherwise] .
+
+
+---countTokens defined for taskSnd
+ceq countTokens( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for taskSnd
+eq countTokens( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+	 =  float( OEToken ) [otherwise] .
+
+
+
+---countTokens defined for taskRcv
+ceq countTokens( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for taskRcv
+eq countTokens( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+	 =  float( OEToken ) [otherwise] .
+
+
+---countTokens defined for interSnd
+ceq countTokens( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for interSnd
+eq countTokens( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+	 =  float( OEToken ) [otherwise] .
+
+
+---countTokens defined for interRcv
+ceq countTokens(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+	 =  float( OEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for interRcv
+eq countTokens(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+		=  float( OEToken ) [otherwise] .
+
+
+---countTokens defined for endSnd
+ceq countTokens( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+	 =  float( IEToken ) + 1.0 if Status1 =/= disabled .
+---countTokens defined for endSnd
+eq countTokens( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+		=  float( IEToken ) [otherwise] .
+
+
+---countTokens defined for terminate
+ceq countTokens( terminate( Status1 , OEName . OEToken ) )
+	 =  float( OEToken + 1 ) if Status1 =/= disabled .
+---countTokens defined for terminate
+eq countTokens( terminate( Status1 , OEName . OEToken ) )
+		=  float( OEToken ) [otherwise] .
+
+
+***countTokens Exception
+ceq countTokens( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  float( OEToken + 1 ) if Status1 =/= disabled .
+ ***countTokens Exception
+ eq countTokens( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  float( OEToken ) [otherwise] .
+
+ceq countTokens( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+ =  float( OEToken + 1 ) if Status1 =/= disabled .
+ eq countTokens( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+ =  float( OEToken )[otherwise] .
+
+ eq countTokens( emptyProcElements )
+ =  0.0 .
+
+ eq countTokens( ProcElem1 | ProcElements1 )
+ = 0.0 + countTokens( ProcElem1 ) + countTokens(ProcElements1 ) .
+
+
+ ---  eq noMultipleTokenPresentAround( ProcElem1 | ProcElements1  )
+ ---  = false [otherwise] .
+
+
+
+
+
+
+
+
+
+
+---noInterRcvSet( Edge )
+eq noInterRcvSet( eventInterRcv( disabled , EName . 0 , MsgName1 .msg  MsgToken1  ) )
+		= true .
+eq noInterRcvSet( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) )
+		= false [otherwise] .
+---noInterRcvSet(Edge and Edges)
+eq noInterRcvSet( eventInterRcv( disabled , EName . 0 , MsgName1 .msg  MsgToken1  ) ^ interRcv )
+		 =  noInterRcvSet(interRcv) .
+eq noInterRcvSet( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) ^ interRcv )
+		 		= false [otherwise] .
+
+
+
+
+
+
+
+	---decAllEdges(Edge)
+	eq decAllEdges( emptyEdgeSet ) = emptyEdgeSet .
+	eq decAllEdges( IEName . IEToken )
+			 = IEName . decreaseToken( IEToken ) .
+	---decAllEdges( Edges and Edge )
+	eq decAllEdges( Edges0 and IEName . IEToken )
+		 	= IEName . decreaseToken( IEToken ) and decAllEdges( Edges0 ) .
+
+	---increaseMsgToken by 1
+	---limitator of 9 tokens
+	---ceq increaseMsgToken( MsgToken1 ) = MsgToken1 + 1 if MsgToken1 < 10 .
+	---eq increaseMsgToken( MsgToken1 ) = MsgToken1 [otherwise] .
+	---without limitator
+	eq increaseMsgToken( MsgToken1 ) = MsgToken1 + 1 .
+	---decreaseMsgToken by 1
+	eq decreaseMsgToken( MsgToken1 ) = MsgToken1 - 1 .
+
+---Define resetAllProcTokens for each single element considering the presence of other ProcElements
+ eq resetAllProcTokens(emptyProcElements ) =
+ emptyProcElements .
+
+---Define resetAllProcTokens for each single element
+	---resetAllProcTokens for task
+	eq resetAllProcTokens(task( Status1 , IEName . IEToken , OEName . OEToken , TName ) ) =
+	task( disabled , IEName . 0 ,  OEName . 0 , TName ) .
+	---resetAllProcTokens for taskSnd
+	eq resetAllProcTokens(taskSnd( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName) ) =
+	taskSnd( disabled , IEName . 0  , OEName . 0  , MsgName1 .msg MsgToken1 , TName) .
+	---resetAllProcTokens for taskRcv
+	eq resetAllProcTokens(taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  , TName) ) =
+	taskRcv( disabled , IEName . 0 , OEName . 0  , MsgName1 .msg MsgToken1 , TName ) .
+	---resetAllProcTokens for start
+	eq resetAllProcTokens( start( Status1 , OEName . OEToken ) ) =
+	start( disabled , OEName . 0 ) .
+	---resetAllProcTokens for interSnd
+	eq resetAllProcTokens(interSnd( Status1 , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1) ) =
+	interSnd( Status1 , IEName . 0 ,  OEName . 0 ,  MsgName1 .msg MsgToken1) .
+	---resetAllProcTokens for endSnd
+	eq resetAllProcTokens(endSnd( Status1  , IEName . IEToken ,  MsgName1 .msg MsgToken1) ) =
+	endSnd( disabled , IEName . 0 ,  MsgName1 .msg MsgToken1 ) .
+	---resetAllProcTokens for interRcv
+	eq resetAllProcTokens(interRcv( Status1 , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1) ) =
+	interRcv( Status1 , IEName . 0 , OEName . 0 ,  MsgName1 .msg MsgToken1 ).
+	---resetAllProcTokens for startRcv
+	eq resetAllProcTokens(startRcv(Status1 , OEName . 0 ,  MsgName1 .msg MsgToken1 )) =
+	startRcv(Status1 , OEName . 0  ,  MsgName1 .msg MsgToken1) .
+	---resetAllProcTokens for end
+	eq resetAllProcTokens(end( Status1 , OEName . OEToken ) ) =
+	end( disabled , OEName . 0 ) .
+  ---resetAllProcTokens for andJoin
+	eq resetAllProcTokens(	andJoin( edges( Edges0 ) , IEName . IEToken ) ) =
+	andJoin( edges( resetEdges( Edges0 ) ) , IEName . 0 ) .
+	---resetAllProcTokens for andSplit
+	eq resetAllProcTokens(	andSplit( IEName . IEToken , edges( Edges0 ))) =
+	andSplit( IEName . 0 , edges( resetEdges( Edges0 ) )).
+	---resetAllProcTokens for xorSplit
+	eq resetAllProcTokens(	xorSplit( IEName . IEToken , edges( Edges0 ))) =
+	xorSplit( IEName . 0 , edges( resetEdges( Edges0 ))).
+	---resetAllProcTokens for xorJoin
+	eq resetAllProcTokens(	xorJoin( edges( Edges0 ) , IEName . IEToken )) =
+	xorJoin( edges( resetEdges( Edges0 ) ) , IEName . 0 ) .
+	---resetAllProcTokens for eventSplit
+	eq resetAllProcTokens(	eventSplit( IEName . IEToken , eventRcvSplit( interRcv ))) =
+	eventSplit( IEName . 0 , eventRcvSplit( resetInterRcv( interRcv ))).
+	---resetAllProcTokens for orSplit
+	eq resetAllProcTokens(	orSplit( IEName . IEToken , edges( Edges0 ))) =
+	orSplit( IEName . 0 , edges( resetEdges( Edges0 ))).
+
+	eq resetAllProcTokens( ProcElem1 | ProcElements1 )
+	= resetAllProcTokens( ProcElem1 ) | resetAllProcTokens(ProcElements1 )  .
+
+
+	---resetInterRcv resets the interRcv in a eventRcvSplit
+	---resetInterRcv( InterRcv )
+	eq resetInterRcv( eventInterRcv( Status1 ,  EName . EToken , MsgName1 .msg MsgToken1 ) )
+		 = eventInterRcv( disabled , EName . 0 , MsgName1 .msg MsgToken1 ) .
+	---resetInterRcv( InterRcv | InterRcv )
+	eq resetInterRcv( eventInterRcv( Status1 ,  EName . EToken , MsgName1 .msg MsgToken1 ) ^ interRcv )
+		 =  eventInterRcv( disabled , EName . 0 , MsgName1 .msg MsgToken1 ) ^ resetInterRcv( interRcv ) .
+
+	---setStatusEnabled( InterRcv )
+	eq setStatusEnabled( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg MsgToken1 ))
+		=  eventInterRcv( enabled , EName . EToken , MsgName1 .msg MsgToken1) .
+	---setStatusEnabled( InterRcv | InterRcv )
+	eq setStatusEnabled( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg MsgToken1) ^ interRcv )
+		=  eventInterRcv( enabled , EName . EToken  , MsgName1 .msg MsgToken1) ^ setStatusEnabled( interRcv ) .
+	---setStatusDisabled( InterRcv )
+	eq setStatusDisabled( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg MsgToken1 ))
+		=  eventInterRcv( disabled , EName . EToken , MsgName1 .msg MsgToken1) .
+	---setStatusDisabled( InterRcv | InterRcv )
+	eq setStatusDisabled( eventInterRcv( Status1 , EName . EToken , MsgName1 .msg MsgToken1 )^ interRcv )
+		=  eventInterRcv( disabled , EName . EToken , MsgName1 .msg MsgToken1 ) ^ setStatusDisabled( interRcv ) .
+
+  ---resetEdges( Edge )
+	eq resetEdges( emptyEdgeSet ) = emptyEdgeSet .
+
+	ceq resetEdges( IEName . IEToken ) = IEName . 0 if IEToken > 0 .
+	eq resetEdges( IEName . IEToken ) = IEName . IEToken [otherwise] .
+  ---resetEdges( Edge and Edges )
+	ceq resetEdges( IEName . IEToken and Edges0 ) = IEName . 0 and resetEdges( Edges0 ) if IEToken > 0 .
+	eq resetEdges( IEName . IEToken and Edges0 ) = IEName . IEToken and resetEdges( Edges0 ) [otherwise] .
+
+
+
+---noTokenPresentExceptEndAndEndEdge except on END and END's edge
+ ---noTokenPresentExceptEndAndEndEdge defined for start
+			 eq noTokenPresentExceptEndAndEndEdge( start( disabled , OEName . 0 ) )
+			 	 = true .
+				 ---noTokenPresentExceptEndAndEndEdge defined for start
+				 eq noTokenPresentExceptEndAndEndEdge( start( Status1 , OEName . OEToken ) )
+				 = false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for task
+			 eq noTokenPresentExceptEndAndEndEdge( task( disabled , IEName . 0 , OEName . 0 , TName  ) )
+			 	 =  true .
+				 ---noTokenPresentExceptEndAndEndEdge defined for task
+				 eq noTokenPresentExceptEndAndEndEdge( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+				 =  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for end
+			 ---eq noTokenPresentExceptEndAndEndEdge(  end( Status1 , OEName . 0 ))
+			 	--- =  true .
+				 ---noTokenPresentExceptEndAndEndEdge defined for end
+				 eq noTokenPresentExceptEndAndEndEdge( end( Status1 , OEName . OEToken ) )
+				 =  true .
+			 ---noTokenPresentExceptEndAndEndEdge defined for xorSplit
+			 ceq noTokenPresentExceptEndAndEndEdge ( xorSplit( IEName . 0 , edges( Edges0 )  ) )
+			 		= true if noTokenSet?(Edges0) = true .
+					---noTokenPresentExceptEndAndEndEdge defined for xorSplit
+					eq noTokenPresentExceptEndAndEndEdge ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+					= false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for andSplit
+			 ceq noTokenPresentExceptEndAndEndEdge ( andSplit( IEName . 0 ,edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---noTokenPresentExceptEndAndEndEdge defined for andSplit
+					eq noTokenPresentExceptEndAndEndEdge ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for orSplit
+			 ceq noTokenPresentExceptEndAndEndEdge ( orSplit( IEName . 0 , edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---noTokenPresentExceptEndAndEndEdge defined for orSplit
+					eq noTokenPresentExceptEndAndEndEdge ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for xorJoin
+			  ceq noTokenPresentExceptEndAndEndEdge( xorJoin( edges( Edges0 ) , IEName . 0 ) )
+			  = true if noTokenSet?(Edges0) = true  .
+				---noTokenPresentExceptEndAndEndEdge defined for xorJoin
+				 eq noTokenPresentExceptEndAndEndEdge( xorJoin( edges( Edges0 ) , IEName . IEToken ) )
+				 = false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for andJoin
+			 ceq noTokenPresentExceptEndAndEndEdge( andJoin( edges( Edges0 ) , IEName . 0 ) )
+			 = true if noTokenSet?(Edges0) = true .
+			 ---noTokenPresentExceptEndAndEndEdge defined for andJoin
+			 eq noTokenPresentExceptEndAndEndEdge( andJoin( edges( Edges0 ) , IEName . IEToken ) )
+			 = false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for eventSplit
+			 eq noTokenPresentExceptEndAndEndEdge ( eventSplit( IEName . 0 , eventRcvSplit( interRcv ) ) )
+			 		= true .
+					---noTokenPresentExceptEndAndEndEdge defined for eventSplit
+			 eq noTokenPresentExceptEndAndEndEdge ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+				= false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for startRcv
+			 eq noTokenPresentExceptEndAndEndEdge( startRcv(disabled ,  OEName . 0 , MsgName1 .msg MsgToken1 ) )
+			 		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for startRcv
+				 eq noTokenPresentExceptEndAndEndEdge( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+				 =  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for taskSnd
+			 eq noTokenPresentExceptEndAndEndEdge( taskSnd( disabled , IEName . 0, OEName . 0  , MsgName1 .msg MsgToken1 , TName  ))
+			 		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for taskSnd
+					eq noTokenPresentExceptEndAndEndEdge( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ))
+					=  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for taskRcv
+			 eq noTokenPresentExceptEndAndEndEdge( taskRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName ))
+			 		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for taskRcv
+					eq noTokenPresentExceptEndAndEndEdge( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+					=  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for interSnd
+			 eq noTokenPresentExceptEndAndEndEdge( interSnd( disabled, IEName . 0 , OEName . 0 ,  MsgName1 .msg MsgToken1 ) )
+			 		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for interSnd
+					eq noTokenPresentExceptEndAndEndEdge( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) )
+					=  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for interRcv
+			 eq noTokenPresentExceptEndAndEndEdge(  interRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1  ) )
+			 		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for interRcv
+					eq noTokenPresentExceptEndAndEndEdge(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) )
+					 =  false [otherwise] .
+			 ---noTokenPresentExceptEndAndEndEdge defined for endSnd
+			 ---eq noTokenPresentExceptEndAndEndEdge( endSnd( disabled , IEName . 0 ,  MsgName1 .msg MsgToken1  ) )
+			 	---	=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for endSnd
+					eq noTokenPresentExceptEndAndEndEdge( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+					 =  true .
+			 ---noTokenPresentExceptEndAndEndEdge defined for terminate
+			 ---eq noTokenPresentExceptEndAndEndEdge( terminate( disabled , OEName . 0 ) )
+			 ---		=  true .
+					---noTokenPresentExceptEndAndEndEdge defined for terminate
+					eq noTokenPresentExceptEndAndEndEdge( terminate( Status1 , OEName . OEToken ) )
+					 =  true  .
+			 ***noTokenPresentExceptEndAndEndEdge Exception
+			 eq noTokenPresentExceptEndAndEndEdge( taskBNI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+			 	=  true .
+				***noTokenPresentExceptEndAndEndEdge Exception
+				eq noTokenPresentExceptEndAndEndEdge( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+			 eq noTokenPresentExceptEndAndEndEdge( taskBI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) )
+			 	=  true .
+				eq noTokenPresentExceptEndAndEndEdge( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+				eq noTokenPresentExceptEndAndEndEdge( emptyProcElements )
+	 			=  true .
+
+			 ceq noTokenPresentExceptEndAndEndEdge( ProcElem1 | ProcElements1  )
+			 = false if noTokenPresentExceptEndAndEndEdge( ProcElem1 ) = false .
+			eq noTokenPresentExceptEndAndEndEdge( ProcElem1 | ProcElements1  )
+			= true [otherwise] .
+
+
+
+
+	 ---rlyNoTokenPresent defined for start
+			eq rlyNoTokenPresent( start( disabled , OEName . 0 ) ) = true .
+				 ---rlyNoTokenPresent defined for start
+			eq rlyNoTokenPresent( start( Status1 , OEName . OEToken ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for task
+			eq rlyNoTokenPresent( task( disabled , IEName . 0 , OEName . 0 , TName  ) ) =  true .
+			---rlyNoTokenPresent defined for task
+			eq rlyNoTokenPresent( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for end
+			eq rlyNoTokenPresent(  end( disabled , OEName . 0 )) =  true .
+			---rlyNoTokenPresent defined for end
+			eq rlyNoTokenPresent( end( Status1 , OEName . OEToken ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for xorSplit
+			ceq rlyNoTokenPresent ( xorSplit( IEName . 0 , edges( Edges0 )  ) ) = true if noTokenSet?(Edges0) = true .
+			---rlyNoTokenPresent defined for xorSplit
+			eq rlyNoTokenPresent ( xorSplit( IEName . IEToken , edges( Edges0 )  ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for andSplit
+			ceq rlyNoTokenPresent ( andSplit( IEName . 0 ,edges( Edges0 ) ) ) = true if noTokenSet?(Edges0) = true  .
+			---rlyNoTokenPresent defined for andSplit
+			eq rlyNoTokenPresent ( andSplit( IEName . IEToken ,edges( Edges0 ) ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for orSplit
+			ceq rlyNoTokenPresent ( orSplit( IEName . 0 , edges( Edges0 ) ) ) = true if noTokenSet?(Edges0) = true  .
+			---rlyNoTokenPresent defined for orSplit
+			eq rlyNoTokenPresent ( orSplit( IEName . IEToken , edges( Edges0 ) ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for xorJoin
+			ceq rlyNoTokenPresent( xorJoin( edges( Edges0 ) , IEName . 0 ) ) = true if noTokenSet?(Edges0) = true  .
+			---rlyNoTokenPresent defined for xorJoin
+			eq rlyNoTokenPresent( xorJoin( edges( Edges0 ) , IEName . IEToken ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for andJoin
+			ceq rlyNoTokenPresent( andJoin( edges( Edges0 ) , IEName . 0 ) ) = true if noTokenSet?(Edges0) = true .
+			---rlyNoTokenPresent defined for andJoin
+			eq rlyNoTokenPresent( andJoin( edges( Edges0 ) , IEName . IEToken ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for eventSplit
+			eq rlyNoTokenPresent ( eventSplit( IEName . 0 , eventRcvSplit( interRcv ) ) ) = true .
+			---rlyNoTokenPresent defined for eventSplit
+			eq rlyNoTokenPresent ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) ) = false [otherwise] .
+
+			---rlyNoTokenPresent defined for startRcv
+			eq rlyNoTokenPresent( startRcv(disabled ,  OEName . 0 , MsgName1 .msg MsgToken1 ) ) =  true .
+			---rlyNoTokenPresent defined for startRcv
+			eq rlyNoTokenPresent( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for taskSnd
+			eq rlyNoTokenPresent( taskSnd( disabled , IEName . 0, OEName . 0  , MsgName1 .msg MsgToken1 , TName  )) =  true .
+			---rlyNoTokenPresent defined for taskSnd
+			eq rlyNoTokenPresent( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  )) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for taskRcv
+			eq rlyNoTokenPresent( taskRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName )) =  true .
+			---rlyNoTokenPresent defined for taskRcv
+			eq rlyNoTokenPresent( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName )) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for interSnd
+			eq rlyNoTokenPresent( interSnd( disabled, IEName . 0 , OEName . 0 ,  MsgName1 .msg MsgToken1 ) ) =  true .
+			---rlyNoTokenPresent defined for interSnd
+			eq rlyNoTokenPresent( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for interRcv
+			eq rlyNoTokenPresent(  interRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1  ) ) =  true .
+			---rlyNoTokenPresent defined for interRcv
+			eq rlyNoTokenPresent(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for endSnd
+			eq rlyNoTokenPresent( endSnd( disabled , IEName . 0 ,  MsgName1 .msg MsgToken1  ) ) =  true .
+			---rlyNoTokenPresent defined for endSnd
+			eq rlyNoTokenPresent( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) ) =  false [otherwise] .
+
+			---rlyNoTokenPresent defined for terminate
+			eq rlyNoTokenPresent( terminate( disabled , OEName . 0 ) ) =  true .
+			---rlyNoTokenPresent defined for terminate
+			eq rlyNoTokenPresent( terminate( Status1 , OEName . OEToken ) ) =  false [otherwise] .
+
+			***rlyNoTokenPresent Exception
+			eq rlyNoTokenPresent( taskBNI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) ) =  true .
+		    ***rlyNoTokenPresent Exception
+			eq rlyNoTokenPresent( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) ) =  false [otherwise] .
+
+			eq rlyNoTokenPresent( taskBI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) ) =  true .
+			eq rlyNoTokenPresent( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) ) =  false [otherwise] .
+
+			eq rlyNoTokenPresent( emptyProcElements ) =  true .
+
+			ceq rlyNoTokenPresent( ProcElem1 | ProcElements1  )
+			 = false if rlyNoTokenPresent( ProcElem1 ) = false .
+			eq rlyNoTokenPresent( ProcElem1 | ProcElements1  )
+			  = true [otherwise] .
+
+		---	ceq rlyNoTokenPresent( ProcElem1 | ProcElements1  )
+		---	 = true if rlyNoTokenPresent( ProcElem1 ) = true /\ rlyNoTokenPresent(ProcElements1 ) = true .
+		---	eq rlyNoTokenPresent( ProcElem1 | ProcElements1  )
+		---	   = false [otherwise] .
+
+
+
+---howManyTokenPresent check if there is only one token in a composition of BPMN elements which is a ProcElements here
+op rlyNoTokenPresentNotEvenMsg(_) : ProcElements -> Bool .
+
+
+	 ---rlyNoTokenPresentNotEvenMsg defined for start
+			 eq rlyNoTokenPresentNotEvenMsg( start( disabled , OEName . 0 ) )
+			 	 = true .
+				 ---rlyNoTokenPresentNotEvenMsg defined for start
+				 eq rlyNoTokenPresentNotEvenMsg( start( Status1 , OEName . OEToken ) )
+				 = false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for task
+			 eq rlyNoTokenPresentNotEvenMsg( task( disabled , IEName . 0 , OEName . 0 , TName  ) )
+			 	 =  true .
+				 ---rlyNoTokenPresentNotEvenMsg defined for task
+				 eq rlyNoTokenPresentNotEvenMsg( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) )
+				 =  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for end
+			 eq rlyNoTokenPresentNotEvenMsg(  end( disabled , OEName . 0 ))
+			 	 =  true .
+				 ---rlyNoTokenPresentNotEvenMsg defined for end
+				 eq rlyNoTokenPresentNotEvenMsg( end( Status1 , OEName . OEToken ) )
+				 =  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for xorSplit
+			 ceq rlyNoTokenPresentNotEvenMsg ( xorSplit( IEName . 0 , edges( Edges0 )  ) )
+			 		= true if noTokenSet?(Edges0) = true .
+					---rlyNoTokenPresentNotEvenMsg defined for xorSplit
+					eq rlyNoTokenPresentNotEvenMsg ( xorSplit( IEName . IEToken , edges( Edges0 )  ) )
+					= false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for andSplit
+			 ceq rlyNoTokenPresentNotEvenMsg ( andSplit( IEName . 0 ,edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---rlyNoTokenPresentNotEvenMsg defined for andSplit
+					eq rlyNoTokenPresentNotEvenMsg ( andSplit( IEName . IEToken ,edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for orSplit
+			 ceq rlyNoTokenPresentNotEvenMsg ( orSplit( IEName . 0 , edges( Edges0 ) ) )
+			 		= true if noTokenSet?(Edges0) = true  .
+					---rlyNoTokenPresentNotEvenMsg defined for orSplit
+					eq rlyNoTokenPresentNotEvenMsg ( orSplit( IEName . IEToken , edges( Edges0 ) ) )
+					= false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for xorJoin
+			  ceq rlyNoTokenPresentNotEvenMsg( xorJoin( edges( Edges0 ) , IEName . 0 ) )
+			  = true if noTokenSet?(Edges0) = true  .
+				---rlyNoTokenPresentNotEvenMsg defined for xorJoin
+				 eq rlyNoTokenPresentNotEvenMsg( xorJoin( edges( Edges0 ) , IEName . IEToken ) )
+				 = false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for andJoin
+			 ceq rlyNoTokenPresentNotEvenMsg( andJoin( edges( Edges0 ) , IEName . 0 ) )
+			 = true if noTokenSet?(Edges0) = true .
+			 ---rlyNoTokenPresentNotEvenMsg defined for andJoin
+			 eq rlyNoTokenPresentNotEvenMsg( andJoin( edges( Edges0 ) , IEName . IEToken ) )
+			 = false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for eventSplit
+			 eq rlyNoTokenPresentNotEvenMsg ( eventSplit( IEName . 0 , eventRcvSplit( interRcv ) ) )
+			 		= true .
+					---rlyNoTokenPresentNotEvenMsg defined for eventSplit
+			 eq rlyNoTokenPresentNotEvenMsg ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) )
+				= false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for startRcv
+			 eq rlyNoTokenPresentNotEvenMsg( startRcv(disabled ,  OEName . 0 , MsgName1 .msg 0 ) )
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for startRcv
+				 eq rlyNoTokenPresentNotEvenMsg( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg 0 ) )
+				 =  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for taskSnd
+			 eq rlyNoTokenPresentNotEvenMsg( taskSnd( disabled , IEName . 0, OEName . 0  , MsgName1 .msg 0 , TName  ))
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for taskSnd
+					eq rlyNoTokenPresentNotEvenMsg( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg 0 , TName  ))
+					=  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for taskRcv
+			 eq rlyNoTokenPresentNotEvenMsg( taskRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg 0 , TName ))
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for taskRcv
+					eq rlyNoTokenPresentNotEvenMsg( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg 0 , TName ))
+					=  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for interSnd
+			 eq rlyNoTokenPresentNotEvenMsg( interSnd( disabled, IEName . 0 , OEName . 0 ,  MsgName1 .msg 0 ) )
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for interSnd
+					eq rlyNoTokenPresentNotEvenMsg( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg 0 ) )
+					=  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for interRcv
+			 eq rlyNoTokenPresentNotEvenMsg(  interRcv( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg 0  ) )
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for interRcv
+					eq rlyNoTokenPresentNotEvenMsg(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg 0  ) )
+					 =  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for endSnd
+			 eq rlyNoTokenPresentNotEvenMsg( endSnd( disabled , IEName . 0 ,  MsgName1 .msg 0  ) )
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for endSnd
+					eq rlyNoTokenPresentNotEvenMsg( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg 0  ) )
+					 =  false [otherwise] .
+			 ---rlyNoTokenPresentNotEvenMsg defined for terminate
+			 eq rlyNoTokenPresentNotEvenMsg( terminate( disabled , OEName . 0 ) )
+			 		=  true .
+					---rlyNoTokenPresentNotEvenMsg defined for terminate
+					eq rlyNoTokenPresentNotEvenMsg( terminate( Status1 , OEName . OEToken ) )
+					 =  false [otherwise] .
+			 ***rlyNoTokenPresentNotEvenMsg Exception
+			 eq rlyNoTokenPresentNotEvenMsg( taskBNI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg 0 , TName , BNIEName . 0 ) )
+			 	=  true .
+				***rlyNoTokenPresentNotEvenMsg Exception
+				eq rlyNoTokenPresentNotEvenMsg( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+			 eq rlyNoTokenPresentNotEvenMsg( taskBI( disabled , IEName . 0 , OEName . 0 , MsgName1 .msg 0 , TName , BNIEName . 0 ) )
+			 	=  true .
+				eq rlyNoTokenPresentNotEvenMsg( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . BNIEToken ) )
+				=  false [otherwise] .
+
+				eq rlyNoTokenPresentNotEvenMsg( emptyProcElements )
+	 			=  true .
+
+			 ceq rlyNoTokenPresentNotEvenMsg( ProcElem1 | ProcElements1  )
+			 = false if rlyNoTokenPresentNotEvenMsg( ProcElem1 ) = false .
+			  eq rlyNoTokenPresentNotEvenMsg( ProcElem1 | ProcElements1  )
+			  = true [otherwise] .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---howManyTokenPresent check if there is only one token in a composition of BPMN elements which is a ProcElements here
+op MultipleTokenEnd(_) : ProcElements -> Bool .
+
+---MultipleTokenEnd
+ceq MultipleTokenEnd(  end( Status1 , OEName . OEToken ))
+	=  true if OEToken > 1 .
+---MultipleTokenEnd defined for end
+eq MultipleTokenEnd( end( Status1 , OEName . OEToken ) )
+	=  false [otherwise] .
+
+---MultipleTokenEnd defined for endSnd
+ceq MultipleTokenEnd( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+	=  true if IEToken > 1 .
+---MultipleTokenEnd defined for endSnd
+eq MultipleTokenEnd( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) )
+	=  false [otherwise] .
+
+---MultipleTokenEnd defined for terminate
+ceq MultipleTokenEnd( terminate( Status1 , OEName . OEToken ) )
+	=  true if OEToken > 1 .
+---MultipleTokenEnd defined for terminate
+eq MultipleTokenEnd( terminate( Status1 , OEName . OEToken ) )
+	=  false [otherwise] .
+
+
+
+op noTokenPresentExceptEndSF(_,_) : ProcElements Edge -> Bool .
+---noTokenPresentExceptEndSF(ProcElements1, IEName . IETokenA )
+
+	 ---noTokenPresentExceptEndSF defined for start
+			 ceq noTokenPresentExceptEndSF( start( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 	 = true if OEToken = 0 .
+			 ceq noTokenPresentExceptEndSF( start( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 	 = true if  OEName = IENameA /\ OEToken = IETokenA  .
+				 ---noTokenPresentExceptEndSF defined for start
+				 eq noTokenPresentExceptEndSF( start( Status1 , OEName . OEToken ) , IENameA . IETokenA )
+				 = false [otherwise] .
+			 ---noTokenPresentExceptEndSF defined for task
+			 ceq noTokenPresentExceptEndSF( task( disabled , IEName . 0 , OEName . OEToken , TName  )  , IENameA . IETokenA )
+			 	 =  true if OEToken = 0  .
+             ceq noTokenPresentExceptEndSF( task( disabled , IEName . 0 , OEName . OEToken , TName  )  , IENameA . IETokenA )
+			 	 =  true if  OEName = IENameA /\ OEToken = IETokenA  .
+				 ---noTokenPresentExceptEndSF defined for task
+				 eq noTokenPresentExceptEndSF( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) , IENameA . IETokenA )
+				 =  false [otherwise] .
+			 ---noTokenPresentExceptEndSF defined for end
+			 ceq noTokenPresentExceptEndSF(  end( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 	 =  true if OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF(  end( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 	 =  true if  OEName = IENameA /\ OEToken = IETokenA  .
+				 ---noTokenPresentExceptEndSF defined for end
+				 eq noTokenPresentExceptEndSF( end( Status1 , OEName . OEToken ) , IENameA . IETokenA )
+				 =  false [otherwise] .
+			 ---noTokenPresentExceptEndSF defined for xorSplit
+
+---MODIFICARE BENE
+---edges( Edges0 ) => IEName . IEToken and Edges0
+
+			 ceq noTokenPresentExceptEndSF ( xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  ) , IENameA . IETokenA )
+			 		= true if noTokenSet?(Edges0) = true /\  OEName = IENameA /\ OEToken = IETokenA  .
+					---noTokenPresentExceptEndSF defined for xorSplit
+					eq noTokenPresentExceptEndSF ( xorSplit( IEName . IEToken , edges( Edges0 )  ) , IENameA . IETokenA )
+					= false [otherwise] .
+			 ---noTokenPresentExceptEndSF defined for andSplit
+---MODIFICARE BENE
+			 ceq noTokenPresentExceptEndSF ( andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  ) , IENameA . IETokenA )
+			 		= true if noTokenSet?(Edges0) = true  /\  OEName = IENameA /\ OEToken = IETokenA  .
+					---noTokenPresentExceptEndSF defined for andSplit
+					eq noTokenPresentExceptEndSF ( andSplit( IEName . IEToken , edges( OEName . OEToken and Edges0 )  ) , IENameA . IETokenA )
+					= false [otherwise] .
+			 ---noTokenPresentExceptEndSF defined for orSplit
+---MODIFICARE BENE
+			 ceq noTokenPresentExceptEndSF ( orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 ) ) , IENameA . IETokenA )
+			 		= true if noTokenSet?(Edges0) = true  /\  OEName = IENameA /\ OEToken = IETokenA  .
+					---noTokenPresentExceptEndSF defined for orSplit
+					eq noTokenPresentExceptEndSF ( orSplit( IEName . IEToken , edges( Edges0 ) ) , IENameA . IETokenA )
+					= false [otherwise] .
+
+
+
+			 ---noTokenPresentExceptEndSF defined for xorJoin
+			  ceq noTokenPresentExceptEndSF( xorJoin( edges( Edges0 ) , OEName . OEToken ) , IENameA . IETokenA )
+			  = true if noTokenSet?(Edges0) = true  /\  OEToken = 0  .
+			ceq noTokenPresentExceptEndSF( xorJoin( edges( Edges0 ) , OEName . OEToken ) , IENameA . IETokenA )
+			  = true if noTokenSet?(Edges0) = true  /\   OEToken = IETokenA /\ OEName = IENameA  .
+				---noTokenPresentExceptEndSF defined for xorJoin
+				 eq noTokenPresentExceptEndSF( xorJoin( edges( Edges0 ) , OEName . OEToken ) , IENameA . IETokenA )
+				 = false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+			 ceq noTokenPresentExceptEndSF( andJoin( edges( Edges0 ) , OEName . OEToken ) , IENameA . IETokenA )
+			 = true if noTokenSet?(Edges0) = true /\  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF( andJoin( edges( Edges0 ) , OEName . OEToken ) , IENameA . IETokenA )
+			 = true if noTokenSet?(Edges0) = true /\  OEToken = IETokenA /\ OEName = IENameA  .
+			 ---noTokenPresentExceptEndSF defined for andJoin
+			 eq noTokenPresentExceptEndSF( andJoin( edges( Edges0 ) , IEName . IEToken ) , IENameA . IETokenA )
+			 = false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for eventSplit
+			 ---NON CONTROLLO eventRcvSplit( interRcv ) DOVREI FARLO
+			 ceq noTokenPresentExceptEndSF ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) , IENameA . IETokenA )
+			 		= true if  IEToken = 0   .
+			---noTokenPresentExceptEndSF defined for eventSplit
+			 eq noTokenPresentExceptEndSF ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) , IENameA . IETokenA )
+				= false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for startRcv
+			 ceq noTokenPresentExceptEndSF( startRcv(disabled ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			ceq noTokenPresentExceptEndSF( startRcv(disabled ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+			 		=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+					---noTokenPresentExceptEndSF defined for startRcv
+			eq noTokenPresentExceptEndSF( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+				 =  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for taskSnd
+			 ceq noTokenPresentExceptEndSF( taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ), IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF( taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ), IENameA . IETokenA )
+			 		=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+					---noTokenPresentExceptEndSF defined for taskSnd
+			eq noTokenPresentExceptEndSF( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ), IENameA . IETokenA )
+					=  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for taskRcv
+			 ceq noTokenPresentExceptEndSF( taskRcv( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ), IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF( taskRcv( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ), IENameA . IETokenA )
+			 		=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+			---noTokenPresentExceptEndSF defined for taskRcv
+			eq noTokenPresentExceptEndSF( taskRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ), IENameA . IETokenA )
+					=  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for interSnd
+			 ceq noTokenPresentExceptEndSF( interSnd( disabled, IEName . 0 , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF( interSnd( disabled, IEName . 0 , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+			 		=  true if   OEToken = IETokenA /\ OEName = IENameA  .
+			---noTokenPresentExceptEndSF defined for interSnd
+					eq noTokenPresentExceptEndSF( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , IENameA . IETokenA )
+					=  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for interRcv
+			 ceq noTokenPresentExceptEndSF(  interRcv( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF(  interRcv( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+			 		=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+			---noTokenPresentExceptEndSF defined for interRcv
+			 eq noTokenPresentExceptEndSF(  interRcv( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+					 =  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for endSnd
+			 ceq noTokenPresentExceptEndSF( endSnd( disabled , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+			 		=  true if  IEToken = IETokenA /\ IEName = IENameA  .
+			 ceq noTokenPresentExceptEndSF( endSnd( disabled , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+			 		=  true if  IEToken = 0  .
+					---noTokenPresentExceptEndSF defined for endSnd
+			eq noTokenPresentExceptEndSF( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) , IENameA . IETokenA )
+					 =  false [otherwise] .
+
+			 ---noTokenPresentExceptEndSF defined for terminate
+			 ceq noTokenPresentExceptEndSF( terminate( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 		=  true if  OEToken = 0  .
+			ceq noTokenPresentExceptEndSF( terminate( disabled , OEName . OEToken ) , IENameA . IETokenA )
+			 		=  true if OEToken = IETokenA /\ OEName = IENameA  .
+					---noTokenPresentExceptEndSF defined for terminate
+			eq noTokenPresentExceptEndSF( terminate( Status1 , OEName . OEToken ) , IENameA . IETokenA )
+					 =  false [otherwise] .
+
+			 ***noTokenPresentExceptEndSF Exception
+			 ceq noTokenPresentExceptEndSF( taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) , IENameA . IETokenA )
+			 	=  true if  OEToken = 0  .
+			 ceq noTokenPresentExceptEndSF( taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) , IENameA . IETokenA )
+			 	=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+				***noTokenPresentExceptEndSF Exception
+				eq noTokenPresentExceptEndSF( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , IENameA . IETokenA )
+				=  false [otherwise] .
+
+			 ceq noTokenPresentExceptEndSF( taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) , IENameA . IETokenA )
+			 	=  true if  OEToken = 0  .
+ 			 ceq noTokenPresentExceptEndSF( taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . 0 ) , IENameA . IETokenA )
+			 	=  true if  OEToken = IETokenA /\ OEName = IENameA  .
+			 eq noTokenPresentExceptEndSF( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , IENameA . IETokenA )
+				=  false [otherwise] .
+
+				eq noTokenPresentExceptEndSF( emptyProcElements , IENameA . IETokenA )
+	 			=  true .
+
+			 ceq noTokenPresentExceptEndSF( ProcElem1 | ProcElements1  , IENameA . IETokenA )
+			 = true if noTokenPresentExceptEndSF( ProcElem1 , IENameA . IETokenA ) = true /\ noTokenPresentExceptEndSF(ProcElements1 , IENameA . IETokenA ) = true .
+
+			  eq noTokenPresentExceptEndSF( ProcElem1 | ProcElements1 , IENameA . IETokenA )
+			  = false [otherwise] .
+
+
+				ceq multipleTokenPresentEdges( IEName . IEToken and Edges0 )
+				= true if IEToken > 1 .
+
+				eq multipleTokenPresentEdges( IEName . IEToken and Edges0 )
+				= false [otherwise] .
+
+				ceq multipleTokenPresentEdges( IEName . IEToken )
+				= true if IEToken > 1 .
+
+				eq multipleTokenPresentEdges( IEName . IEToken )
+				= false [otherwise] .
+
+
+
+
+
+				***Fore reachability with search command
+				---search a state of the model which process associated to the expressed pool is safe
+				op safenessModelPool(_,_) : Model OrgName -> Bool .
+
+
+
+				  var Model1 : Model .
+
+
+				  ---ceq safenessModelPool( Model1 , OrgName1)
+				  ceq safenessModelPool(
+				    collaboration(
+				      {CollAction1}
+				      pool( OrgName1 ,
+				        proc(
+				            {Action1}ProcElements1
+				            ),in: inputMsgSet ,out: outputMsgSet
+				            ) | Coll1
+				        ), OrgName1 ) = true if noMultipleTokenPresent(ProcElements1) = true .
+
+				      eq safenessModelPool(
+				          collaboration(
+				            {CollAction1}
+				            pool( OrgName1 ,
+				              proc(
+				                  {Action1}ProcElements1
+				                  ),in: inputMsgSet ,out: outputMsgSet
+				                  ) | Coll1
+				              ), OrgName1 ) = false [owise] .
+
+
+
+											ceq safenessModelPool(
+										    collaboration(
+										      {CollAction1}
+										      pool( OrgName1 ,
+										        proc(
+										            {Action1}ProcElements1
+										            ),in: inputMsgSet ,out: outputMsgSet
+										            )
+										        ), OrgName1 ) = true if noMultipleTokenPresent(ProcElements1) = true .
+
+										      eq safenessModelPool(
+										          collaboration(
+										            {CollAction1}
+										            pool( OrgName1 ,
+										              proc(
+										                  {Action1}ProcElements1
+										                  ),in: inputMsgSet ,out: outputMsgSet
+										                  )
+										              ), OrgName1 ) = false [owise] .
+
+
+---checkTraversedSQF
+---checkTraversedSQF defined for start
+ceq checkTraversedSQF( start( Status1 , IEName . IEToken ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for task
+ceq checkTraversedSQF( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for task
+ceq checkTraversedSQF( task( Status1 , IEName . IEToken , OEName . OEToken , TName  ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for end
+ceq checkTraversedSQF( end( Status1 , OEName . OEToken ) , OEName )
+	=  true if OEToken > 0 .
+
+---checkTraversedSQF defined for xorSplit input edge
+ceq checkTraversedSQF ( xorSplit( IEName . IEToken , edges( Edges0 )  ) , IEName )
+	 = true if IEToken > 0 .
+
+---checkTraversedSQF defined for xorSplit output edge
+ceq checkTraversedSQF ( xorSplit( IEName . IEToken , edges( OEName . OEToken and Edges0 ) ) , OEName )
+	 = true if OEToken > 0 .
+
+---checkTraversedSQF defined for andSplit
+ceq checkTraversedSQF ( andSplit( IEName . IEToken ,edges( Edges0 ) ) , IEName )
+	 = true if IEToken > 0 .
+
+---checkTraversedSQF defined for xorJoin input edge
+ceq checkTraversedSQF( xorJoin( edges( IEName . IEToken and Edges0 ) , OEName . OEToken ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for xorJoin output edge
+ceq checkTraversedSQF( xorJoin( edges( Edges0 ) , OEName . OEToken ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for andJoin input edge
+ceq checkTraversedSQF( andJoin( edges( IEName . IEToken and Edges0 ) , OEName . OEToken ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for andJoin output edge
+ceq checkTraversedSQF( andJoin( edges( Edges0 ) , OEName . OEToken ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for eventSplit
+ceq checkTraversedSQF ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ) ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for eventSplit
+ceq checkTraversedSQF ( eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , EName . EToken , MsgName1 .msg  MsgToken1  ) ) ) , EName )
+	= true if EToken > 0 .
+
+---checkTraversedSQF defined for startRcv
+ceq checkTraversedSQF( startRcv(Status1 ,  OEName . OEToken , MsgName1 .msg MsgToken1 ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for taskSnd
+ceq checkTraversedSQF( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for taskSnd
+ceq checkTraversedSQF( taskSnd( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for taskRcv
+ceq checkTraversedSQF( taskRcv( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for taskRcv
+ceq checkTraversedSQF( taskRcv( Status1 , IEName . IEToken, OEName . OEToken  , MsgName1 .msg MsgToken1 , TName  ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for interSnd
+ceq checkTraversedSQF( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for interSnd
+ceq checkTraversedSQF( interSnd( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for interSnd
+ceq checkTraversedSQF( interRcv( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for interSnd
+ceq checkTraversedSQF( interRcv( Status1, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg MsgToken1 ) , OEName )
+	= true if OEToken > 0 .
+
+---checkTraversedSQF defined for endSnd
+ceq checkTraversedSQF( endSnd( Status1 , IEName . IEToken ,  MsgName1 .msg MsgToken1  ) , IEName )
+	= true if IEToken > 0 .
+
+---checkTraversedSQF defined for terminate
+ceq checkTraversedSQF( terminate( Status1 , OEName . OEToken ) , OEName )
+	= true if OEToken > 0 .
+
+
+
+ ***checkTraversedSQF Exception BNI
+ ceq checkTraversedSQF( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , IEName )
+	= true if IEToken > 0 .
+
+	***checkTraversedSQF Exception BNI
+  ceq checkTraversedSQF( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , OEName )
+ 	= true if OEToken > 0 .
+
+	***checkTraversedSQF Exception BNI
+	ceq checkTraversedSQF( taskBNI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , BNIEName )
+	= true if BNIEToken > 0 .
+
+
+	***checkTraversedSQF Exception BI
+  ceq checkTraversedSQF( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , IEName )
+ 	= true if IEToken > 0 .
+
+ 	***checkTraversedSQF Exception BI
+   ceq checkTraversedSQF( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , OEName )
+  	= true if OEToken > 0 .
+
+ 	***checkTraversedSQF Exception BI
+ 	ceq checkTraversedSQF( taskBI( Status1 , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) , BNIEName )
+ 	= true if BNIEToken > 0 .
+
+	eq checkTraversedSQF( ProcElem1 , IEName )
+	=  false [otherwise] .
+
+	ceq checkTraversedSQF( ProcElem1 | ProcElements1  , IEName )
+		= true if checkTraversedSQF( ProcElem1 , IEName ) = true .
+	eq checkTraversedSQF( ProcElem1 | ProcElements1  , IEName )
+		= false [otherwise] .
+
+
+endfm

@@ -1,0 +1,515 @@
+*** SEMANTICS MODULE RESERVED TO RULES DEFINITION
+load BPMNOS_SYNTAX
+
+mod SETCommitment is
+
+	including BPMNOS-SYNTAX .
+
+  protecting EXT-BOOL .
+  protecting NAT .
+
+  sort Commitment .
+	op commitment : ActProcElement -> Commitment [ctor].
+	op commit : ProcElements -> Commitment .
+
+  sorts NeSetCommitment SetCommitment .
+  subsort Commitment < NeSetCommitment < SetCommitment .
+
+  op empty : -> SetCommitment [ctor] .
+  op _,_ : SetCommitment SetCommitment -> SetCommitment [ctor assoc comm id: empty prec 121 format (d r os d)] .
+  op _,_ : NeSetCommitment SetCommitment -> NeSetCommitment [ctor ditto] .
+
+  var E : Commitment .
+  var N : NeSetCommitment .
+  vars A S S' : SetCommitment .
+  var C : Int .
+
+  --- commitment(act,r,P)
+  ---eq N, N = N .
+  --- var act : Action .
+  --- vars r r2 : Rate .
+  --- var P : Process .
+  --- eq commitment(act,r,P) , commitment(act,r2,P) = commitment(act,r + r2,P) .
+
+  op insert : Commitment SetCommitment -> SetCommitment .
+  eq insert(E, S) = E, S .
+
+  op delete : Commitment SetCommitment -> SetCommitment .
+  eq delete(E, (E, S)) = delete(E, S) .
+  eq delete(E, S) = S [owise] .
+
+  op _in_ : Commitment SetCommitment -> Bool .
+  eq E in (E, S) = true .
+  eq E in S = false [owise] .
+
+  op |_| : SetCommitment -> Int .
+  op |_| : NeSetCommitment -> NzNat .
+  eq | S | = $card(S, 0) .
+
+  op $card : SetCommitment Int -> Int .
+  eq $card(empty, C) = C .
+  eq $card((N, N, S), C) = $card((N, S), C) .
+  eq $card((E, S), C) = $card(S, C + 1) [owise] .
+
+  op union : SetCommitment SetCommitment -> SetCommitment .
+  op union : NeSetCommitment SetCommitment -> NeSetCommitment .
+  op union : SetCommitment NeSetCommitment -> NeSetCommitment .
+  eq union(S, S') = S, S' .
+
+  op intersection : SetCommitment SetCommitment -> SetCommitment .
+  eq intersection(S, empty) = empty .
+  eq intersection(S, N) = $intersect(S, N, empty) .
+
+  op $intersect : SetCommitment SetCommitment SetCommitment -> SetCommitment .
+  eq $intersect(empty, S', A) = A .
+  eq $intersect((E, S), S', A) = $intersect(S, S', if E in S' then E, A else A fi) .
+
+  op _\_ : SetCommitment SetCommitment -> SetCommitment  [gather (E e)].
+  eq S \ empty = S .
+  eq S \ N = $diff(S, N, empty) .
+
+  op $diff : SetCommitment SetCommitment SetCommitment -> SetCommitment .
+  eq $diff(empty, S', A) = A .
+  eq $diff((E, S), S', A) = $diff(S, S', if E in S' then A else E, A fi) .
+
+  op _subset_ : SetCommitment SetCommitment -> Bool .
+  eq empty subset S' = true .
+  eq (E, S) subset S' = E in S' and-then S subset S' .
+
+  op _psubset_ : SetCommitment SetCommitment -> Bool .
+  eq S psubset S' = S =/= S' and-then S subset S' .
+endm
+
+
+mod BPMNOS-SEMANTICS-PROCESS is
+
+including SETCommitment .
+*** Variables definition
+	---OrgName
+	vars Org1Name Org2Name : OrgName .
+	---Edges
+	vars Edges0 Edges1 Edges2 : Edges .
+  ---
+	vars Status1 : Status .
+	---TaskName
+	var TName : TaskName .
+  ---EdgeName, InputEdgeName and OutputEdgeName
+	var EName IEName OEName BNIEName : EdgeName .
+	---EdgeToken,  InputEdgeToken and OutputEdgeToken
+	var EToken IEToken OEToken BNIEToken : EdgeToken .
+	---Var for Messages
+	vars Msgs1 inputMsgSet outputMsgSet inputMsgSet1 outputMsgSet1 inputMsgSet2 outputMsgSet2 : Msgs .
+	vars MsgName1 MsgName2 : MsgName .
+	vars MsgToken1 MsgToken1' MsgToken2 : MsgToken .
+	---interRcv
+	var interRcv : InterRcv .
+	---Var for Collaboration
+	vars Coll1 Coll2 Coll1' Coll3 : Collaboration .
+	vars ProcElem1 ProcElem2 ProcElem1' : ProcElement .
+	---var for Action
+	var Action1 Action2 Action1' : Action .
+	var ActProcElement1 : ActProcElement .
+	var CollAction1 CollAction2 CollAction3 : CollaborationAction .
+
+  var Pool1 Pool1' : Pool .
+
+	var ProcElements1 ProcElements2 ProcElements1' : ProcElements .
+
+	var SetCommitment1 : SetCommitment .
+
+	op allCommitments : ProcElements -> SetCommitment .
+
+	op commitment : ActProcElement -> Commitment [ctor].
+	op commit : ProcElements -> Commitment .
+
+	op computeAllCommitments(_,_) : ProcElement EdgeSet -> SetCommitment .
+
+	op par : SetCommitment ProcElements -> SetCommitment .
+	---  eq par((commitment(act,r,P) , commSet) , Q) = commitment(act,r,P | Q) , par(commSet , Q) .
+	ceq par(
+		(commitment({Action1}ProcElements1) , SetCommitment1) , ProcElements2)
+ 	= commitment({Action1}(ProcElements1 | ProcElements2)) ,
+	 	par(SetCommitment1 , ProcElements2)
+		if isInterleaving(Action1) .
+
+	eq par(
+		(commitment({tUpd(Edges1 , Edges2)}ProcElements1) , SetCommitment1) , ProcElements2)
+ 	= commitment({tUpd(Edges1 , Edges2)}(ProcElements1 | markingUpdate(ProcElements2,tUpd(Edges1 , Edges2)))) ,
+	 	par(SetCommitment1 , ProcElements2) .
+
+		--- crl [N-MarkingUpd] :
+		--- ProcElem1 | ProcElements2
+		--- =>
+		--- {tUpd(Edges1 , Edges2)} ProcElem1' | markingUpdate(ProcElements2,tUpd(Edges1 , Edges2))
+		--- if ProcElem1 => {tUpd(Edges1 , Edges2)}ProcElem1' .
+
+
+	eq par(
+			(commitment({kill}ProcElements1) , SetCommitment1) , ProcElements2)
+	 	= commitment({kill}(ProcElements1 | resetAllProcTokens( ProcElements2 ))) ,
+		 	par(SetCommitment1 , ProcElements2) .
+
+
+  eq par(empty , ProcElements2) = empty .
+
+
+
+***PROCESS SEMANTICS
+  eq [NO-COMMITMENTS] :
+  allCommitments (ProcElements1) = empty [owise] .
+
+	eq [N-Par-EQ] :
+	allCommitments (ProcElements1 | ProcElements2)
+	=
+	par(allCommitments(ProcElements1) , ProcElements2 ) ,
+	par(allCommitments(ProcElements2) , ProcElements1 )
+	.
+
+	ceq [T-Enable] :
+	allCommitments( task( disabled , IEName . IEToken , OEName . OEToken , TName ) )
+	=
+  commitment( {tUpd(IEName . IEToken , emptyEdgeSet)}task( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , TName ) )
+	if IEToken > 0 .
+
+	eq[T-Running] :
+	allCommitments(task( enabled , IEName . IEToken , OEName . OEToken , TName ))
+	=
+	commitment({running(TName)}task( running , IEName . IEToken , OEName . OEToken , TName )) .
+
+	eq[T-Complete] :
+	allCommitments( task( running , IEName . IEToken , OEName . OEToken , TName ))
+	=
+	commitment({completed(TName)}task( completed , IEName . IEToken , OEName . OEToken , TName )) .
+
+	eq[T-Proceed] :
+	allCommitments( task( completed , IEName . IEToken , OEName . OEToken , TName ))
+	=
+	commitment( {tUpd(emptyEdgeSet , OEName . OEToken)}task( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , TName ))
+	.
+
+***TASKSND
+
+		ceq [T-Enable-Msg-Snd] :
+		allCommitments( taskSnd( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment( {tUpd( IEName . IEToken , emptyEdgeSet )}taskSnd( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg  MsgToken1 , TName ))
+		if IEToken > 0 .
+
+		eq[T-Running-Msg-Snd] :
+		allCommitments(taskSnd( enabled , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment({running(TName)}taskSnd( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName )) .
+
+		eq[T-Send] :
+		allCommitments( taskSnd( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment({snd(MsgName1)}taskSnd( msgSent , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1) , TName ) ) .
+
+		ceq [T-Complete-Msg-Snd] :
+		allCommitments( taskSnd( msgSent , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment( {completed(TName)}taskSnd( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName ))
+		if  MsgToken1 > 0 .
+
+		eq[T-Proceed-Msg-Snd] :
+		allCommitments( taskSnd( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment({tUpd(emptyEdgeSet , OEName . OEToken)}taskSnd( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName )) .
+
+***TASKRCV
+
+		ceq [T-Enable-Msg-Rcv] :
+		allCommitments( taskRcv( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment({tUpd( IEName . IEToken , emptyEdgeSet )}taskRcv( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName ))
+		if IEToken > 0 .
+
+		eq[T-Running-Msg-Rcv] :
+		allCommitments( taskRcv( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment( {running(TName)}taskRcv( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ) ) .
+
+		eq[T-Receive] :
+		allCommitments( taskRcv( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment({rcv(MsgName1)}taskRcv( msgReceived , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1) , TName ))
+		.
+
+		ceq [T-Complete-Msg-Rcv] :
+	  allCommitments( taskRcv( msgReceived , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment( {completed(TName)}taskRcv( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName ))
+		if  MsgToken1 > 0 .
+
+		eq[T-Proceed-Msg-Rcv] :
+		allCommitments( taskRcv( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName ))
+		=
+		commitment( {tUpd(emptyEdgeSet , OEName . OEToken)}taskRcv( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName ))
+		.
+***EVENTS
+
+	eq [E-Start-EQ] : allCommitments( start( enabled , IEName . IEToken ) )
+  = commitment( {tUpd(emptyEdgeSet , IEName . IEToken)}start( disabled , IEName . increaseToken( IEToken ) )) .
+
+
+	ceq [E-EnableEnd-EQ] : allCommitments( end( disabled , IEName . IEToken ) )
+	= commitment( {tUpd(IEName . IEToken , emptyEdgeSet)}end( enabled , IEName . decreaseToken( IEToken ) ))
+	if IEToken > 0 .
+
+	eq [E-DisableEnd-EQ] : allCommitments( end( enabled , IEName . IEToken ) )
+	= commitment( {endReached}end( disabled , IEName . IEToken ))
+  .
+
+	eq [E-Receive-EQ] :
+	allCommitments( startRcv( enabled , OEName . OEToken , MsgName1 .msg MsgToken1 ) )
+	=
+	commitment( {rcv(MsgName1)}startRcv( msgReceived , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 )))
+	.
+
+	ceq [E-MsgStart] :
+	allCommitments(startRcv( msgReceived , OEName . OEToken ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment( {tUpd(emptyEdgeSet , OEName . OEToken)}startRcv( disabled , OEName . increaseToken (OEToken) ,  MsgName1 .msg decreaseMsgToken( MsgToken1 )))
+	if MsgToken1 > 0 .
+
+***endSnd
+
+	ceq [E-MsgEnd] :
+	allCommitments(endSnd( disabled , IEName . IEToken ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment({tUpd( IEName . IEToken , emptyEdgeSet )}endSnd( enabled , IEName . decreaseToken( IEToken ) ,  MsgName1 .msg MsgToken1 ))
+		if IEToken > 0 .
+
+	eq[E-Send] :
+	allCommitments(endSnd( enabled , IEName . IEToken ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment({snd(MsgName1)}endSnd( msgSent , IEName . IEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) ) ).
+
+	ceq[E-Complete-Send] :
+	allCommitments(endSnd( msgSent , IEName . IEToken ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment({endReached}endSnd( disabled , IEName . IEToken ,  MsgName1 .msg decreaseMsgToken( MsgToken1 ) ) )
+	if MsgToken1 > 0 .
+
+	ceq [E-Terminate] :
+	allCommitments(terminate( disabled , IEName . IEToken ))
+	=
+	commitment({tUpd( IEName . IEToken , emptyEdgeSet )}terminate( enabled , IEName . decreaseToken( IEToken ) ))
+	if IEToken > 0 .
+
+	eq[E-Kill] :
+	allCommitments(terminate( enabled , IEName . IEToken ))
+	=
+	commitment({kill} terminate( disabled , IEName . IEToken )) .
+
+***interSnd
+
+	ceq [E-EnableInter-Snd] :
+	allCommitments(interSnd( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 ))
+	=
+	commitment({tUpd(IEName . IEToken , emptyEdgeSet)}interSnd( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken ,  MsgName1 .msg MsgToken1  ))
+	if IEToken > 0 .
+
+	eq[E-SendInter-Snd] :
+	allCommitments(interSnd( enabled , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment({snd(MsgName1)}interSnd( msgSent, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) ) ).
+
+	eq[E-CompleteInter-Snd] :
+	allCommitments(interSnd( msgSent , IEName . IEToken  , OEName . OEToken ,  MsgName1 .msg MsgToken1))
+  =
+	commitment({tUpd(emptyEdgeSet , OEName . OEToken)}interSnd( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) ,  MsgName1 .msg decreaseMsgToken( MsgToken1 ) )) .
+
+***interRcv
+
+	ceq [E-EnableInter-Rcv] :
+	allCommitments(interRcv( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 ))
+	=
+	commitment({tUpd(IEName . IEToken , emptyEdgeSet)}interRcv( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken ,  MsgName1 .msg MsgToken1  ))
+	if IEToken > 0 .
+
+	eq[E-ReceiveInter-Rcv] :
+	allCommitments(interRcv( enabled , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1 ))
+	=
+	commitment({rcv(MsgName1)}interRcv( msgReceived, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) )) .
+
+	eq[E-CompleteInter-Rcv] :
+	allCommitments(interRcv( msgReceived , IEName . IEToken  , OEName . OEToken ,  MsgName1 .msg MsgToken1))
+	=
+	commitment({tUpd(emptyEdgeSet , OEName . OEToken)}interRcv( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) ,  MsgName1 .msg decreaseMsgToken( MsgToken1 ) )) .
+
+
+***GATEWAY
+
+	ceq [G-XorSplit] :
+	allCommitments(xorSplit( IEName . IEToken ,  edges( Edges1 )))
+	=
+  computeAllCommitments(xorSplit( IEName . IEToken ,  edges( Edges1 )), edges( Edges1) )
+	--- commitment({tUpd(IEName . IEToken , OEName . OEToken )}
+	---               xorSplit( IEName . decreaseToken( IEToken ) ,  edges( OEName . increaseToken( OEToken ) and Edges1 )))
+	if IEToken > 0  .
+
+  eq computeAllCommitments(xorSplit( IEName . IEToken ,  edges( OEName . OEToken and Edges1 )), edges( OEName . OEToken and Edges2 ))
+	 = computeAllCommitments(xorSplit( IEName . IEToken ,  edges( OEName . OEToken and Edges1 )), edges(                      Edges2 )) ,
+	 commitment({tUpd(IEName . IEToken , OEName . OEToken )}
+	             xorSplit( IEName . decreaseToken( IEToken ) ,  edges( OEName . increaseToken( OEToken ) and Edges1 ))) .
+
+  eq computeAllCommitments(xorSplit( IEName . IEToken ,  edges( Edges1 )) , edges( emptyEdgeSet) )
+	 = empty [owise] .
+
+	 ***Added to handle token generator, so to recognize the presence of a cycle and set to 1 all the sequence flow with 10 tokens and to 0 the rest
+---	ceq [G-AndSplit-Token-Generator-Handler] :
+---	allCommitments(andSplit( IEName . IEToken , edges(Edges1) ))
+---	=
+---	commitment({tUpd(emptyEdgeSet ,  emptyEdgeSet )}andSplit( IEName . IEToken ,  edges( fixAllEdges( Edges1 ))))
+---	if checkAllEdges( Edges1 ) = true .
+
+	ceq [G-AndSplit] :
+	allCommitments(andSplit( IEName . IEToken , edges(Edges1) ))
+	=
+	commitment({tUpd(IEName . IEToken ,  Edges1 )}andSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ))))
+	if IEToken > 0 .
+
+
+***OR-Split
+
+	ceq [G-orSplit] :
+	allCommitments(orSplit( IEName . IEToken ,  edges( Edges1 )))
+	=
+  computeAllCommitments(orSplit( IEName . IEToken ,  edges( Edges1 )), edges( Edges1) )
+	--- commitment({tUpd(IEName . IEToken , OEName . OEToken )}
+	---               xorSplit( IEName . decreaseToken( IEToken ) ,  edges( OEName . increaseToken( OEToken ) and Edges1 )))
+	if IEToken > 0  .
+
+  eq computeAllCommitments(orSplit( IEName . IEToken ,  edges( Edges1 and Edges2)), edges( OEName . OEToken and Edges2 ))
+	 = computeAllCommitments(orSplit( IEName . IEToken ,  edges( Edges1 and Edges2)), edges(                      Edges2 )) ,
+	 commitment({tUpd(IEName . IEToken , Edges1 )}
+	             orSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ) and Edges2 ))) .
+
+  eq computeAllCommitments(orSplit( IEName . IEToken ,  edges( Edges1 and Edges2)) , edges( emptyEdgeSet) )
+	 = empty [owise] .
+
+	--- G-OrSplit acts on a orSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing one, several of the different output EdgeTokens by 1.
+	crl [G-OrSplit] :
+	orSplit( IEName . IEToken ,  edges( Edges1 and Edges2))
+	=>
+	{tUpd(IEName . IEToken , Edges1 )}orSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ) and Edges2 ))
+	if IEToken > 0 .
+
+	--- G-OrSplit acts on a orSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing all the different output EdgeTokens by 1.
+	crl [G-OrSplit] :
+	orSplit( IEName . IEToken ,  edges( Edges1))
+	=>
+	{tUpd(IEName . IEToken , Edges1 )}orSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ) ))
+	if IEToken > 0 .
+
+	ceq [G-XorJoin] :
+  allCommitments(xorJoin( edges( IEName . IEToken and Edges1 ) ,  OEName . OEToken ))
+	=
+	commitment({tUpd(IEName . IEToken  , OEName . OEToken)}xorJoin( edges( IEName . decreaseToken(IEToken) and Edges1 )  ,  OEName . increaseToken( OEToken ) ))
+	if IEToken > 0 .
+
+	ceq [G-AndJoin] :
+  allCommitments(andJoin( edges( Edges1 ) ,  OEName . OEToken ))
+  =
+	commitment({tUpd(Edges1 , OEName . OEToken)}andJoin( edges( decAllEdges( Edges1 )) ,  OEName . increaseToken( OEToken )))
+  if allTokenSet?( Edges1 ) .
+***eventSplit
+
+	ceq [G-EnableEvent] :
+	allCommitments(eventSplit( IEName . IEToken ,  eventRcvSplit( interRcv )))
+	=
+	commitment({tUpd(IEName . IEToken , emptyEdgeSet )}eventSplit( IEName . decreaseToken( IEToken ) ,  eventRcvSplit( setStatusEnabled( interRcv ))))
+	if IEToken > 0 .
+
+
+	ceq [G-CompleteEvent] :
+	allCommitments(eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( msgReceived , EName . EToken , MsgName1 .msg  MsgToken1  ) ^ interRcv )))
+	=
+	commitment({tUpd(emptyEdgeSet , EName . EToken )}eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( disabled , EName . increaseToken(EToken) , MsgName1 .msg decreaseMsgToken(MsgToken1) ) ^ interRcv )))
+	if MsgToken1 > 0 .
+
+
+	***Task Boundary Not Interrupting
+
+
+		ceq [T-Enable-taskBNI] :
+		allCommitments(taskBNI( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({tUpd( IEName . IEToken , emptyEdgeSet )}taskBNI( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName , BNIEName . BNIEToken ))
+		if IEToken > 0 .
+
+		eq[T-Enabled-RcvMsg-taskBNI] :
+		allCommitments(taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({rcv(MsgName1)}taskBNI( enabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 ) , TName , BNIEName . BNIEToken ))
+		.
+
+
+		eq[T-Running-taskBNI] :
+		allCommitments(taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({running(TName)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )) .
+
+		ceq [T-Running-decMsg-taskBNI] :
+		allCommitments(taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({running(TName)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ), TName , BNIEName . increaseToken(BNIEToken) ))
+		if MsgToken1 > 0 .
+
+
+		eq[T-Enabled-RcvMsg-taskBNI] :
+		allCommitments(taskBNI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({rcv(MsgName1)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 ) , TName , BNIEName . BNIEToken ))
+		.
+
+		ceq [T-Running-RcvMsg-taskBNI] :
+		allCommitments(taskBNI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+		=
+		commitment({tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken( BNIEToken) ))
+		if MsgToken1 > 0 .
+
+		***Task Boundary Interrupting
+
+			ceq [T-Enable-taskBI] :
+			allCommitments(taskBI( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({tUpd( IEName . IEToken , emptyEdgeSet )}taskBI( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName , BNIEName . BNIEToken ))
+			if IEToken > 0 .
+
+			ceq [T-Enabled-RcvMsg-taskBI] :
+			allCommitments(taskBI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({rcv(MsgName1)}{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBI( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken(BNIEToken) ))
+			if MsgToken1 > 0
+			.
+
+
+			ceq [T-Running-taskBI] :
+			allCommitments(taskBI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({running(TName)}taskBI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			if MsgToken1 < 1 .
+
+			ceq [T-Enabled-RcvMsg-taskBI] :
+			allCommitments(taskBI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({rcv(MsgName1)}{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBI( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken(BNIEToken) ))
+			if MsgToken1 > 0
+			.
+
+			ceq [T-taskBI] :
+			allCommitments(taskBI( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({completed(TName)}taskBI( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			if MsgToken1 < 1
+			.
+
+			eq[T-Proceed-taskBI] :
+			allCommitments(taskBI( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			=
+			commitment({tUpd(emptyEdgeSet , OEName . OEToken)}taskBI( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ))
+			.
+
+endm

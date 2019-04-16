@@ -1,0 +1,43 @@
+red modelCheck(
+collaboration( {noAction}
+pool( "Customer" ,
+  proc( {emptyAction}
+    startRcv(enabled , "SequenceFlow_25" . 0 , "Travel Offer" .msg 0 ) |
+    task( disabled , "SequenceFlow_25" . 0 , "SequenceFlow_26" . 0 , "Check Offer") |
+    xorSplit( "SequenceFlow_26" . 0 , edges( "SequenceFlow_4" . 0 and "SequenceFlow_3" . 0 )  ) |
+    taskSnd( disabled , "SequenceFlow_3" . 0 , "SequenceFlow_5" . 0 , "Offer Rejection" .msg 0 , "Reject Offer") |
+    end( "SequenceFlow_5" . 0 ) |
+    taskSnd( disabled , "SequenceFlow_4" . 0 , "SequenceFlow_7" . 0 , "Travel Booking" .msg 0 , "Book Travel") |
+    interRcv( disabled , "SequenceFlow_7" . 0 , "SequenceFlow_8" . 0 , "Booking Confirmation" .msg 0 ) |
+    taskSnd( disabled , "SequenceFlow_8" . 0 , "SequenceFlow_9" . 0 , "Payment" .msg 0 , "Pay Travel") |
+    interRcv( disabled , "SequenceFlow_9" . 0 , "SequenceFlow_10" . 0 , "Payment Confirmation" .msg 0 ) |
+    end( "SequenceFlow_10" . 0 ) |
+    emptyProcElements
+  ) ,
+in: "Travel Offer" .msg 0 andmsg "Booking Confirmation" .msg 0 andmsg "Payment Confirmation" .msg 0 andmsg  emptyMsgSet , out: "Offer Rejection" .msg 0 andmsg "Travel Booking" .msg 0 andmsg "Payment" .msg 0 andmsg  emptyMsgSet )
+|
+pool( "Travel Agency" ,
+  proc( {emptyAction}
+    start( enabled , "SequenceFlow_11" . 0 ) |
+    taskSnd( disabled , "SequenceFlow_11" . 0 , "SequenceFlow_12" . 0 , "Travel Offer" .msg 0 , "Make Travel Offer") |
+    eventSplit( "SequenceFlow_12" . 0 , eventRcvSplit( eventInterRcv( disabled , "SequenceFlow_16" . 0 , "Travel Booking" .msg 0 )  | eventInterRcv( disabled , "SequenceFlow_15" . 0 , "Offer Rejection" .msg 0 )  )  ) |
+    taskSnd( disabled , "SequenceFlow_16" . 0 , "SequenceFlow_17" . 0 , "Booking Confirmation" .msg 0 , "Confirm Booking") |
+    interRcv( disabled , "SequenceFlow_17" . 0 , "SequenceFlow_18" . 0 , "Payment" .msg 0 ) |
+    taskSnd( disabled , "SequenceFlow_18" . 0 , "SequenceFlow_19" . 0 , "Ticket Request" .msg 0 , "Order Ticket") |
+    end( "SequenceFlow_19" . 0 ) |
+    end( "SequenceFlow_15" . 0 ) |
+    emptyProcElements
+  ) ,
+in: "Travel Booking" .msg 0 andmsg "Offer Rejection" .msg 0 andmsg "Payment" .msg 0 andmsg  emptyMsgSet , out: "Travel Offer" .msg 0 andmsg "Booking Confirmation" .msg 0 andmsg "Ticket Request" .msg 0 andmsg  emptyMsgSet )
+| pool( "Airline Process" ,
+  proc( {emptyAction}
+    startRcv(enabled , "SequenceFlow_20" . 0 , "Ticket Request" .msg 0) |
+    task( disabled , "SequenceFlow_20" . 0 , "SequenceFlow_21" . 0 , "Handle Payment") |
+    xorSplit( "SequenceFlow_21" . 0 , edges( "SequenceFlow_22" . 0 and "SequenceFlow_23" . 0 )  ) |
+    taskSnd( disabled , "SequenceFlow_22" . 0 , "SequenceFlow_24" . 0 , "Payment Confirmation" .msg 0 , "Confirm Payment") |
+    end( "SequenceFlow_24" . 0 ) |
+    end( "SequenceFlow_23" . 0 ) |
+    emptyProcElements
+  ) ,
+in: "Ticket Request" .msg 0 andmsg  emptyMsgSet , out: "Payment Confirmation" .msg 0 andmsg  emptyMsgSet )
+) , <> (aBPoolstartsParameterized( "Airline Process" ))) .

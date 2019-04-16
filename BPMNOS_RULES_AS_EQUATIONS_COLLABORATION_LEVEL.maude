@@ -1,0 +1,74 @@
+*** SEMANTICS MODULE RESERVED TO RULES DEFINITION
+load BPMNOS_RULES_AS_EQUATIONS_POOL_LEVEL
+
+mod BPMNOS-SEMANTICS is
+	including BPMNOS-SEMANTICS-POOL .
+
+*** Variables definition
+	---OrgName
+	vars Org1Name Org2Name : OrgName .
+	---Edges
+	vars Edges0 Edges1 Edges2 : Edges .
+  ---
+	vars Status1 : Status .
+	---TaskName
+	var TName : TaskName .
+  ---EdgeName, InputEdgeName and OutputEdgeName
+	var EName IEName OEName BNIEName : EdgeName .
+	---EdgeToken,  InputEdgeToken and OutputEdgeToken
+	var EToken IEToken OEToken BNIEToken : EdgeToken .
+	---Var for Messages
+	vars Msgs1 inputMsgSet outputMsgSet inputMsgSet1 outputMsgSet1 inputMsgSet2 outputMsgSet2 : Msgs .
+	vars MsgName1 MsgName2 : MsgName .
+	vars MsgToken1 MsgToken1' MsgToken2 : MsgToken .
+	---interRcv
+	var interRcv : InterRcv .
+	---Var for Collaboration
+	vars Coll1 Coll2 Coll1' Coll3 : Collaboration .
+	vars ProcElem1 ProcElem2 ProcElem1' : ProcElement .
+	---var for Action
+	var Action1 Action2 Action1' : Action .
+	var ActProcElement1 : ActProcElement .
+	var CollAction1 CollAction2 CollAction3 : CollaborationAction .
+
+  var Pool1 Pool1' : Pool .
+
+	var ProcElements1 ProcElements2 ProcElements1' : ProcElements .
+
+	var SetCommitment1 : SetCommitment .
+
+	var SetPoolCommitment1 : SetCommitment .
+
+***COLLABORATION SEMANTICS
+
+	crl [C-Interleaving] :
+	collaboration( {CollAction1} Pool1 | Coll2 )
+	=>
+	collaboration( {CollAction2} (Pool1' | Coll2) )
+	--- if Pool1 => {CollAction2} Pool1' /\ Pool1 =/= emptyPool .
+	if Pool1 =/= emptyPool
+	/\ (poolCommitment({CollAction2} Pool1' ), SetPoolCommitment1) := allPoolCommitments(Pool1) .
+
+	crl [C-Deliver] :
+	collaboration( {CollAction1}
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet2)
+	)
+	=>
+	collaboration({collab(Org1Name , snd(MsgName1))} pool(Org1Name,proc({snd(MsgName1)}ProcElements1' ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg increaseMsgToken( MsgToken2 ),out: outputMsgSet2)
+	)
+	if (commitment({snd(MsgName1)}ProcElements1'), SetCommitment1) := allCommitments(ProcElements1) .
+
+	crl [C-Deliver-Multiple] :
+	collaboration( {CollAction1}
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet2)
+	| Coll2 )
+	=>
+	collaboration({collab(Org1Name , snd(MsgName1))} pool(Org1Name,proc({snd(MsgName1)}ProcElements1' ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg increaseMsgToken( MsgToken2 ),out: outputMsgSet2)
+	| Coll2 )
+	if (commitment({snd(MsgName1)}ProcElements1'), SetCommitment1) := allCommitments(ProcElements1) .
+
+	endm

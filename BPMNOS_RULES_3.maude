@@ -1,0 +1,466 @@
+*** SEMANTICS MODULE RESERVED TO RULES DEFINITION
+load BPMNOS_SYNTAX
+
+mod BPMNOS-SEMANTICS3 is
+	including BPMNOS-SYNTAX .
+
+*** Variables definition
+	---OrgName
+	vars Org1Name Org2Name : OrgName .
+	---Edges
+	vars Edges0 Edges1 Edges2 : Edges .
+  ---
+	vars Status1 : Status .
+	---TaskName
+	var TName : TaskName .
+  ---EdgeName, InputEdgeName and OutputEdgeName
+	var EName IEName OEName BNIEName : EdgeName .
+	---EdgeToken,  InputEdgeToken and OutputEdgeToken
+	var EToken IEToken OEToken BNIEToken : EdgeToken .
+	---Var for Messages
+	vars Msgs1 inputMsgSet outputMsgSet inputMsgSet1 outputMsgSet1 inputMsgSet2 outputMsgSet2 : Msgs .
+	vars MsgName1 MsgName2 : MsgName .
+	vars MsgToken1 MsgToken1' MsgToken2 : MsgToken .
+	---interRcv
+	var interRcv : InterRcv .
+	---Var for Collaboration
+	vars Coll1 Coll2 Coll1' Coll3 : Collaboration .
+	vars ProcElem1 ProcElem2 ProcElem1' : ProcElement .
+	---var for Action
+	var Action1 Action2 Action1' : Action .
+	var ActProcElement1 : ActProcElement .
+	var CollAction1 CollAction2 CollAction3 : CollaborationAction .
+
+  var Pool1 Pool1' : Pool .
+
+	var ProcElements1 ProcElements2 ProcElements1' : ProcElements .
+
+***COLLABORATION SEMANTICS
+	---C-Interleaving
+	crl [C-Interleaving] :
+	collaboration( {CollAction1} Pool1 | Coll2 )
+	=>
+	collaboration( {CollAction2} (Pool1' | Coll2) )
+	if Pool1 => {CollAction2} Pool1' /\ Pool1 =/= emptyPool .
+
+	---C-Internal
+	crl [C-Internal] :
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet ,out: outputMsgSet)
+	=>
+	{collab(Org1Name , Action1')} pool(Org1Name,proc({Action1'}ProcElements1' ),in: inputMsgSet ,out: outputMsgSet)
+	if ProcElements1 => {Action1'}ProcElements1' /\ isInternal(Action1') .
+
+	---C-Send
+
+	---C-Receive
+	crl [C-Receive] :
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet andmsg MsgName1 .msg MsgToken1 , out: outputMsgSet)
+	=>
+	{collab(Org1Name , rcv(MsgName1))} pool(Org1Name,proc({rcv(MsgName1)}ProcElements1' ),in: inputMsgSet andmsg MsgName1 .msg decreaseMsgToken(MsgToken1),out: outputMsgSet)
+	if MsgToken1 > 0 /\ ProcElements1 => {rcv(MsgName1)}ProcElements1'  .
+
+	***improved Deliver
+	crl [C-Deliver] :
+  collaboration(
+	{CollAction1}
+	pool(Org1Name,proc({Action1}ProcElements1 ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet2)
+	| Coll2 )
+	=>
+	collaboration(
+	{collab(Org1Name , snd(MsgName1))} pool(Org1Name,proc({snd(MsgName1)}ProcElements1' ),in: inputMsgSet,out: outputMsgSet andmsg MsgName1 .msg MsgToken1 )
+	| pool(Org2Name,proc({Action2}ProcElements2 ),in: inputMsgSet2 andmsg MsgName1 .msg increaseMsgToken( MsgToken2 ),out: outputMsgSet2)
+	| Coll2 )
+	if ProcElements1 => {snd(MsgName1)}ProcElements1' .
+
+  ---N-MarkingUpd
+  crl [N-MarkingUpd] :
+	ProcElem1 | ProcElements2
+	=>
+	{tUpd(Edges1 , Edges2)} ProcElem1' | markingUpdate(ProcElements2,tUpd(Edges1 , Edges2))
+	if ProcElem1 => {tUpd(Edges1 , Edges2)}ProcElem1' .
+
+
+	---N-Interleaving
+	crl [N-Interleaving] :
+	ProcElem1 | ProcElements2
+	=>
+	{Action1} (ProcElem1' | ProcElements2 )
+	if ProcElem1 => {Action1}ProcElem1' /\ isInterleaving(Action1) .
+
+	---N-Kill
+	---proc( {actio} ProcElem1 | ProcElements2 )
+crl [N-Kill] :
+	ProcElem1 | ProcElements2
+	=>
+	{kill} ProcElem1' | resetAllProcTokens( ProcElements2 )  if ProcElem1 => {kill}ProcElem1' .
+
+***TASK
+		--- T-Enable acts on a task with Status = disabled, if the task has in input an EdgeToken greater than 0.
+		--- The rule decreases the EdgeToken by 1 and sets the Status to enabled.
+		crl [T-Enable] :
+		task( disabled , IEName . IEToken , OEName . OEToken , TName )
+		=>
+		{tUpd(IEName . IEToken , emptyEdgeSet)}task( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , TName )
+		if IEToken > 0 .
+
+		--- [T-running] acts on a task with Status = enabled, and it changes the Status to running.
+		rl [T-Running] :
+		task( enabled , IEName . IEToken , OEName . OEToken , TName )
+		=>
+		{running(TName)}task( running , IEName . IEToken , OEName . OEToken , TName ) .
+
+		--- [T-Completed] acts on a task with Status = running, and it changes the status in "completed".
+	  rl [T-Complete] :
+	  task( running , IEName . IEToken , OEName . OEToken , TName )
+	  =>
+	  {completed(TName)}task( completed , IEName . IEToken , OEName . OEToken , TName ) .
+
+		--- T-Proceed acts on a task with Status = completed, and it changes the status in "disabled" increasing the output EdgeToken by 1.
+		rl [T-Proceed] :
+	  task( completed , IEName . IEToken , OEName . OEToken , TName )
+	  =>
+	  {tUpd(emptyEdgeSet , OEName . OEToken)}task( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , TName )
+	  .
+
+***TASKSND
+
+		--- T-Enable-Msg-Snd acts on a taskSnd with Status = disabled, if the taskSnd has in input an EdgeToken greater than 0.
+		--- The rule decreases the EdgeToken by 1 and sets the Status to enabled.
+		crl [T-Enable-Msg-Snd] :
+		taskSnd( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{tUpd( IEName . IEToken , emptyEdgeSet )}taskSnd( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg  MsgToken1 , TName )
+		if IEToken > 0 .
+
+		--- T-Running-Msg-Snd acts on a taskSnd with Status = enabled and it changes the TaskStatus to running.
+		rl [T-Running-Msg-Snd] :
+		taskSnd( enabled , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{running(TName)}taskSnd( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ) .
+		--- T-Send acts on a taskSnd with Status = running and it changes the Status to msgSent increasing the MsgToken by 1.
+		rl [T-Send] :
+		taskSnd( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{snd(MsgName1)}taskSnd( msgSent , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1) , TName ) .
+
+		--- T-Complete-Msg-Snd acts on a taskSnd with Status = msgSent, and it changes the Status to completed decreasing the MsgToken by 1.
+		crl [T-Complete-Msg-Snd] :
+		taskSnd( msgSent , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{completed(TName)}taskSnd( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName )
+		if  MsgToken1 > 0 .
+
+		--- T-Proceed-Msg-Snd acts on a taskSnd with Status = completed, and it changes the Status to disabled increasing the output EdgeToken.
+		rl [T-Proceed-Msg-Snd] :
+		taskSnd( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{tUpd(emptyEdgeSet , OEName . OEToken)}taskSnd( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName ) .
+
+***TASKRCV
+
+		--- T-Enable-Msg-Rcv acts on a taskRcv with Status = disabled, if the taskRcv has in input an EdgeToken greater than 0.
+		--- The rule decreases the EdgeToken by 1 and sets the Status to enabled.
+		crl [T-Enable-Msg-Rcv] :
+		taskRcv( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{tUpd( IEName . IEToken , emptyEdgeSet )}taskRcv( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName )
+		if IEToken > 0 .
+
+		--- T-Running-Msg-Rcv acts on a taskRcv with TaskStatus = enabled, and it changes the Status to running.
+		rl [T-Running-Msg-Rcv] :
+		taskRcv( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{running(TName)}taskRcv( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName ) .
+
+		--- T-Receive acts on a taskRcv with Status = running, and it changes the Status to msgReceived increasing the MsgToken by 1.
+		rl [T-Receive] :
+		taskRcv( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{rcv(MsgName1)}taskRcv( msgReceived , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1) , TName )
+		.
+
+		--- T-Complete-Msg-Rcv acts on a taskRcv with Status = msgReceived, and it changes the Status to completed decreasing MsgToken by 1.
+		crl [T-Complete-Msg-Rcv] :
+	  taskRcv( msgReceived , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{completed(TName)}taskRcv( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName )
+		if  MsgToken1 > 0 .
+
+		--- T-Proceed-Msg-Rcv acts on a taskRcv with Status = completed, and it changes the Status to disabled increasing the output EdgeToken by 1.
+		rl [T-Proceed-Msg-Rcv] :
+		taskRcv( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName )
+		=>
+		{tUpd(emptyEdgeSet , OEName . OEToken)}taskRcv( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName )
+		.
+
+***EVENTS
+
+  ---  E-Start acts on a start with Status = enabled, and it changes the Status to disabled increasing the output EdgeToken.
+  rl [E-Start] : start( enabled , IEName . IEToken )
+  => {tUpd(emptyEdgeSet , IEName . IEToken)}start( disabled , IEName . increaseToken( IEToken ) ) .
+
+	--- E-End acts on a end with EdgeToken > 0, and it decreases the input EdgeToken.
+  crl [E-End] :
+  end( IEName . IEToken )
+  =>
+  {tUpd(IEName . IEToken , emptyEdgeSet)}end( IEName . decreaseToken( IEToken ) )
+  if IEToken > 0 .
+
+	--- E-Receive acts on a startRcv with Status = enabled, and it changes the Status to msgReceived increasing the MsgToken by 1.
+	rl [E-Receive] :
+	startRcv( enabled , OEName . OEToken , MsgName1 .msg MsgToken1 )
+	=>
+	{rcv(MsgName1)}startRcv( msgReceived , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 ))
+	.
+
+	--- E-MsgStart acts on a startRcv with Status = msgReceived, and it changes the Status to disabled decreasing the MsgToken by 1 and increasing the output EdgeToken by 1.
+	crl [E-MsgStart] :
+	startRcv( msgReceived , OEName . OEToken ,  MsgName1 .msg MsgToken1 )
+	=>
+	{tUpd(emptyEdgeSet , OEName . OEToken)}startRcv( disabled , OEName . increaseToken (OEToken) ,  MsgName1 .msg decreaseMsgToken( MsgToken1 ))
+	if MsgToken1 > 0 .
+
+***endSnd
+
+	--- E-MsgEnd acts on an endSnd with Status = disabled, and it changes the Status to enabled decreasing the input EdgeToke by 1.
+	crl [E-MsgEnd] :
+	endSnd( disabled , IEName . IEToken ,  MsgName1 .msg MsgToken1 )
+	=>
+	{tUpd( IEName . IEToken , emptyEdgeSet )}endSnd( enabled , IEName . decreaseToken( IEToken ) ,  MsgName1 .msg MsgToken1 )
+		if IEToken > 0 .
+
+  --- E-Send acts on a endSnd with Status = enabled, and it changes the Status to msgSent increasing the MsgToken by 1.
+	rl [E-Send] :
+	endSnd( enabled , IEName . IEToken ,  MsgName1 .msg MsgToken1 )
+	=>
+	{snd(MsgName1)}endSnd( msgSent , IEName . IEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) ) .
+
+	--- E-Terminate acts on a terminate with Status = disabled, and it changes the Status to enabled decreasing the input EdgeToken by 1.
+	crl [E-Terminate] :
+	terminate( disabled , IEName . IEToken )
+	=>
+	{tUpd( IEName . IEToken , emptyEdgeSet )}terminate( enabled , IEName . decreaseToken( IEToken ) )
+	if IEToken > 0 .
+
+	--- E-Kill acts on a terminate with Status = enabled, and it changes the Status to dsabled.
+	rl [E-Kill] :
+	terminate( enabled , IEName . IEToken )
+	=>
+	{kill} terminate( disabled , IEName . IEToken ) .
+
+***interSnd
+  ---  E-EnableInter-Snd acts on a interSnd with Status = disabled, and it changes the Status to enabled decreasing the input EdgeToken by 1.
+	crl [E-EnableInter-Snd] :
+	interSnd( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 )
+	=>
+	{tUpd(IEName . IEToken , emptyEdgeSet)}interSnd( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken ,  MsgName1 .msg MsgToken1  )
+	if IEToken > 0 .
+
+	---  E-SendInter-Snd acts on a interSnd with Status = enabled, and it changes the Status to msgSent increasing the MsgToken by 1.
+	rl [E-SendInter-Snd] :
+	interSnd( enabled , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1 )
+	=>
+	{snd(MsgName1)}interSnd( msgSent, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) ) .
+
+	--- E-CompleteInter-Snd acts on a interSnd with Status = msgSent, and it changes the Status to disabled decreasing the MsgToken by 1 and increasing the ouput EdgeToken by 1.
+	rl [E-CompleteInter-Snd] :
+	interSnd( msgSent , IEName . IEToken  , OEName . OEToken ,  MsgName1 .msg MsgToken1)
+  =>
+	{tUpd(emptyEdgeSet , OEName . OEToken)}interSnd( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) ,  MsgName1 .msg decreaseMsgToken( MsgToken1 ) ) .
+
+***interRcv
+	---  E-EnableInter-Rcv acts on a interRcv with Status = disabled, and it changes the Status to enabled decreasing the input EdgeToken by 1.
+	crl [E-EnableInter-Rcv] :
+	interRcv( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 )
+	=>
+	{tUpd(IEName . IEToken , emptyEdgeSet)}interRcv( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken ,  MsgName1 .msg MsgToken1  )
+	if IEToken > 0 .
+
+  ---  E-ReceiveInter-Rcv acts on a interRcv with Status = enabled, and it changes the Status to msgReceived increasing the MsgToken by 1.
+	rl [E-ReceiveInter-Rcv] :
+	interRcv( enabled , IEName . IEToken , OEName . OEToken  ,  MsgName1 .msg MsgToken1 )
+	=>
+	{rcv(MsgName1)}interRcv( msgReceived, IEName . IEToken , OEName . OEToken ,  MsgName1 .msg increaseMsgToken( MsgToken1 ) ) .
+
+	--- E-CompleteInter-Rcv acts on a interRcv with Status = msgReceived, and it changes the Status to disabled increasing the output EdgeToken by 1.
+	rl [E-CompleteInter-Rcv] :
+	interRcv( msgReceived , IEName . IEToken  , OEName . OEToken ,  MsgName1 .msg MsgToken1)
+	=>
+	{tUpd(emptyEdgeSet , OEName . OEToken)}interRcv( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) ,  MsgName1 .msg MsgToken1  ) .
+
+
+***GATEWAY
+
+	--- G-XorSplit acts on a xorSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing one out of different output EdgeTokens  by 1.
+	crl [G-XorSplit] :
+	xorSplit( IEName . IEToken ,  edges( OEName . OEToken and Edges1 ))
+	=>
+	{tUpd(IEName . IEToken , OEName . OEToken )}xorSplit( IEName . decreaseToken( IEToken ) ,  edges( OEName . increaseToken( OEToken ) and Edges1 ))
+	if IEToken > 0  .
+
+	--- G-AndSplit acts on an andSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing all the different output EdgeTokens by 1.
+	crl [G-AndSplit] :
+	andSplit( IEName . IEToken , edges(Edges1) )
+	=>
+	{tUpd(IEName . IEToken ,  Edges1 )}andSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 )))
+	if IEToken > 0  .
+
+	--- G-OrSplit acts on a orSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing one, several of the different output EdgeTokens by 1.
+	crl [G-OrSplit] :
+	orSplit( IEName . IEToken ,  edges( Edges1 and Edges2))
+	=>
+	{tUpd(IEName . IEToken , Edges1 )}orSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ) and Edges2 ))
+	if IEToken > 0 .
+
+	--- G-OrSplit acts on a orSplit with input EdgeToken > 0, and it decreases the input EdgeToken increasing all the different output EdgeTokens by 1.
+	crl [G-OrSplit] :
+	orSplit( IEName . IEToken ,  edges( Edges1))
+	=>
+	{tUpd(IEName . IEToken , Edges1 )}orSplit( IEName . decreaseToken( IEToken ) ,  edges( incAllEdges( Edges1 ) ))
+	if IEToken > 0 .
+
+	--- G-XorJoin acts on a xorJoin with one input EdgeToken > 0, and it decreases the input EdgeToken increasing the output EdgeToken by 1.
+	crl [G-XorJoin] :
+  xorJoin( edges( IEName . IEToken and Edges1 ) ,  OEName . OEToken )
+  =>
+	{tUpd(IEName . IEToken  , OEName . OEToken)}xorJoin( edges( IEName . decreaseToken(IEToken) and Edges1 )  ,  OEName . increaseToken( OEToken ) )
+  if IEToken > 0 .
+
+	--- G-AndJoin acts on an andJoin with all the input EdgeTokens > 0, and it decreases all the input EdgeTokens increasing the output EdgeToken by 1.
+	crl [G-AndJoin] :
+  andJoin( edges( Edges1 ) ,  OEName . OEToken )
+  =>
+	{tUpd(Edges1 , OEName . OEToken)}andJoin( edges( decAllEdges( Edges1 )) ,  OEName . increaseToken( OEToken ))
+  if allTokenSet?( Edges1 ) .
+
+***eventSplit
+
+	--- G-EnableEvent acts on a eventSplit with input EdgeToken > 0, and it decreases the input EdgeToken setting all the interRcv in output to enabled.
+	crl [G-EnableEvent] :
+	eventSplit( IEName . IEToken ,  eventRcvSplit( interRcv ))
+	=>
+	{tUpd(IEName . IEToken , emptyEdgeSet )}eventSplit( IEName . decreaseToken( IEToken ) ,  eventRcvSplit( setStatusEnabled( interRcv )))
+	if IEToken > 0 .
+
+	--- G-ReceiveEvent acts on a eventSplit with one InterRcv with MsgToken > 0, and it changes the Status to msgReceived and disables all the other InterRcv .
+	crl [G-ReceiveEvent] :
+	 pool(Org1Name,
+	 	proc(
+	 		{Action1} ProcElements1
+	 		| eventSplit( IEName .  IEToken , eventRcvSplit( eventInterRcv( enabled , EName . EToken , MsgName1 .msg MsgToken1 )
+			^ interRcv ))
+		),in: inputMsgSet1 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet1
+	)
+	=>
+	{collab(Org1Name , rcv(MsgName1))}pool(Org1Name,
+		proc(
+			{rcv(MsgName1)}ProcElements1
+			| eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( msgReceived , EName . EToken , MsgName1 .msg increaseMsgToken( MsgToken1 ))
+			^ setStatusDisabled( interRcv ) ))
+	 		),in: inputMsgSet1 andmsg MsgName1 .msg MsgToken2 ,out: outputMsgSet1
+	)
+	if MsgToken2 > 0 .
+
+	--- G-CompleteEvent acts on a eventSplit with one InterRcv with Status = msgReceived, and it changes the Status to disabled decreasing the MsgToken and increasing the output EdgeToken by 1.
+	crl [G-CompleteEvent] :
+	eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( msgReceived , EName . EToken , MsgName1 .msg  MsgToken1  ) ^ interRcv ))
+	=>
+	{tUpd(emptyEdgeSet , EName . EToken )}eventSplit( IEName . IEToken , eventRcvSplit( eventInterRcv( disabled , EName . increaseToken(EToken) , MsgName1 .msg decreaseMsgToken(MsgToken1) ) ^ interRcv ))
+	if MsgToken1 > 0 .
+
+
+	***Task Boundary Not Interrupting
+
+		--- T-Enable-Msg-Rcv acts on a taskRcv with Status = disabled, if the taskRcv has in input an EdgeToken greater than 0.
+		--- The rule decreases the EdgeToken by 1 and sets the Status to enabled.
+		crl [T-Enable-taskBNI] :
+		taskBNI( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{tUpd( IEName . IEToken , emptyEdgeSet )}taskBNI( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName , BNIEName . BNIEToken )
+		if IEToken > 0 .
+
+	  ---taskNBI enabled rcv
+		rl [T-Enabled-RcvMsg-taskBNI] :
+		taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{rcv(MsgName1)}taskBNI( enabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 ) , TName , BNIEName . BNIEToken )
+		.
+---{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}
+		--- T-Running-Msg-Rcv acts on a taskRcv with TaskStatus = enabled, and it changes the Status to running.
+		rl [T-Running-taskBNI] :
+		taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{running(TName)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken ) .
+
+		crl [T-Running-decMsg-taskBNI] :
+		taskBNI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{running(TName)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ), TName , BNIEName . increaseToken(BNIEToken) )
+		if MsgToken1 > 0 .
+
+
+		---taskBNI running rcv
+		rl [T-Enabled-RcvMsg-taskBNI] :
+		taskBNI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{rcv(MsgName1)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg increaseMsgToken( MsgToken1 ) , TName , BNIEName . BNIEToken )
+		.
+
+		---taskBNI running rcv
+		crl [T-Running-RcvMsg-taskBNI] :
+		taskBNI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+		=>
+		{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBNI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken( BNIEToken) )
+		if MsgToken1 > 0 .
+
+		***Task Boundary Interrupting
+
+			--- T-Enable-Msg-Rcv acts on a taskRcv with Status = disabled, if the taskRcv has in input an EdgeToken greater than 0.
+			--- The rule decreases the EdgeToken by 1 and sets the Status to enabled.
+			crl [T-Enable-taskBI] :
+			taskBI( disabled, IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{tUpd( IEName . IEToken , emptyEdgeSet )}taskBI( enabled , IEName . decreaseToken( IEToken ) , OEName . OEToken , MsgName1 .msg MsgToken1  , TName , BNIEName . BNIEToken )
+			if IEToken > 0 .
+
+		  ---taskBI enabled rcv
+			crl [T-Enabled-RcvMsg-taskBI] :
+			taskBI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{rcv(MsgName1)}{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBI( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken(BNIEToken) )
+			if MsgToken1 > 0
+			.
+
+			--- T-Running-Msg-Rcv acts on a taskRcv with TaskStatus = enabled, and it changes the Status to running.
+			crl [T-Running-taskBI] :
+			taskBI( enabled, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{running(TName)}taskBI( running , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			if MsgToken1 < 1 .
+
+			---taskBI running rcv
+			crl [T-Enabled-RcvMsg-taskBI] :
+			taskBI( running, IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{rcv(MsgName1)}{tUpd(emptyEdgeSet , BNIEName . BNIEToken)}taskBI( disabled , IEName . IEToken , OEName . OEToken , MsgName1 .msg decreaseMsgToken( MsgToken1 ) , TName , BNIEName . increaseToken(BNIEToken) )
+			if MsgToken1 > 0
+			.
+
+			--- T-Receive acts on a taskRcv with Status = running, and it changes the Status to msgReceived increasing the MsgToken by 1.
+			crl [T-taskBI] :
+			taskBI( running , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{completed(TName)}taskBI( completed , IEName . IEToken , OEName . OEToken , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			if MsgToken1 < 1
+			.
+
+			--- T-Proceed-Msg-Rcv acts on a taskRcv with Status = completed, and it changes the Status to disabled increasing the output EdgeToken by 1.
+			rl [T-Proceed-taskBI] :
+			taskBI( completed , IEName . IEToken ,  OEName . OEToken  , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			=>
+			{tUpd(emptyEdgeSet , OEName . OEToken)}taskBI( disabled , IEName . IEToken , OEName . increaseToken( OEToken ) , MsgName1 .msg MsgToken1 , TName , BNIEName . BNIEToken )
+			.
+
+
+endm
