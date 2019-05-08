@@ -1571,6 +1571,457 @@ ceq rval(
 
 
 
+***15 noProperCompletionBPMNCF revised version of otpion to complete for bpmn Modules
+  op noProperCompletionBPMNCF(_) : OrgName -> Prop .
+
+---PER OGNI ELEMENTO BPMN E DOVREBBE FUNZIONARE, CON IL CONTROLLO SULL'ELEMENTO NN SO PERCHè NON VA
+---start
+    ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)
+      ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---task
+            ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)
+            ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)
+            ) = 1.0
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 --- andSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---orSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---xorJoin
+            ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- eventSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---startRcv
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---taskSnd
+			ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 ---taskRcv
+			ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if  rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			 --- interSnd
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---interRcv
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 *** Exception taskBNI
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---taskBI
+ 		ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | end( enabled , OEName . OEToken )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+       if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+---endSnd
+---start
+    ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | start( disabled , OEName . OEToken ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---task
+     ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | task( disabled , IEName . IEToken , OEName . OEToken , TName  ) | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- andSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+			---orSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | orSplit( IEName . 0 , edges( OEName . OEToken and Edges0 )  )  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---xorJoin
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | xorJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 ---noTokenPresentExceptEndSF defined for andJoin
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | andJoin( edges( Edges0 ) , OEName . OEToken )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- eventSplit
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | eventSplit( IEName . IEToken , eventRcvSplit( interRcv ^ eventInterRcv( Status1 , OEName . OEToken , MsgName1 .msg  0  ) ))  | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 ---startRcv
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | startRcv(disabled ,  OEName . OEToken , MsgName1 .msg 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+
+			 ---taskSnd
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---taskRcv
+			ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0 , TName  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 --- interSnd
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interSnd( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			 ---interRcv
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | interRcv( disabled , IEName . 0, OEName . OEToken  , MsgName1 .msg 0  )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+
+			 *** Exception taskBNI
+      ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBNI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+       if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+
+			---taskBI
+ 		ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | taskBI( disabled , IEName . 0 , OEName . OEToken , MsgName1 .msg 0 , TName , BNIEName . 0 )   | endSnd( msgSent , OEName . OEToken , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\  OEToken > 0
+      .
+
+      eq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNCF(Org1Name)              ) = 0.0 [otherwise]
+      .
+
+
+***16 noProperCompletionBPMNMF revised version of otpion to complete for bpmn Modules
+  op noProperCompletionBPMNMF(_) : OrgName -> Prop .
+
+ 		ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | end( enabled , OEName . 0 )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNMF(Org1Name) ) = 1.0
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+---endSnd
+ 		ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 | endSnd( msgSent , OEName . 0 , MsgName1 .msg 0)
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNMF(Org1Name) ) = 1.0
+       if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+---terminate
+ 		ceq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {kill}ProcElements1 | terminate( disabled , OEName . 0 )
+        ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNMF(Org1Name) ) = 1.0
+      if rlyNoTokenPresent(ProcElements1) = true /\ ( noMessagePending(outputMsgSet) =/= 0  or noMessagePending(inputMsgSet) =/= 0)
+      .
+
+
+      eq rval(collaboration(
+      {CollAction1}
+      pool( Org1Name ,
+        proc(
+            {Action1}ProcElements1 ),in: inputMsgSet ,out: outputMsgSet
+        ) | Coll1
+      ) , noProperCompletionBPMNMF(Org1Name)              ) = 0.0 [otherwise]
+      .
+
+
       ***traversedSQF
       ceq rval(collaboration(
          {CollAction1}
